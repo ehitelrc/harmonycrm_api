@@ -1,0 +1,47 @@
+package routes
+
+import (
+	"harmony_api/controllers"
+	"harmony_api/ws"
+
+	"github.com/gin-gonic/gin"
+)
+
+func InitializeMessage(r gin.RouterGroup, hub *ws.Hub) {
+
+	controller := controllers.NewMessageEntry(hub)
+
+	api := r.Group("/messages")
+
+	api.POST("/entry", controller.ReceiveMessageWebhook)
+
+	api.POST("/entry/ws/media/image", controller.ReceiveImageMessageWebhookMedia)
+
+	// Endpoint para recibir mensajes de audio
+	api.POST("/entry/ws/media/audio", controller.ReceiveAudioMessageWebhookMedia)
+
+	// Active cases by agent_id
+	api.GET("/entry/active_cases/:agent_id", controller.GetActiveCasesByAgentID)
+
+	// Get messages by case_id
+	api.GET("/entry/messages/:case_id", controller.GetMessagesByCaseID)
+
+	// Send message to platform
+	api.POST("/entry/send", controller.SendMessageToPlatform)
+
+	// Assign case to client
+	api.PUT("/entry/assign_case", controller.AssignCaseToClient)
+
+	//Add case notes
+	api.POST("/entry/case_notes", controller.AddCaseNote)
+
+	// Get notes by case_id
+	api.GET("/entry/case_notes/:case_id", controller.GetCaseNotesByCaseID)
+
+	// Assign to campaign
+	api.POST("/entry/assign_campaign", controller.AssignCaseToCampaign)
+
+	// Current case funnel
+	api.GET("/entry/case_funnel/current/:case_id", controller.GetCurrentCaseFunnel)
+
+}
