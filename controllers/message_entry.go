@@ -446,6 +446,58 @@ func (m *MessageEntry) GetCurrentCaseFunnel(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, true, "Funnel del caso obtenido correctamente", funnel, nil)
 }
 
+func (m *MessageEntry) SetCaseFunnelStage(c *gin.Context) {
+	var req models.MoveCaseStagePayload
+
+	// Bind del JSON
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
+		return
+	}
+
+	caseFunnelStage := models.CaseFunnel{
+		ID:          uint(req.ToStageID),
+		CaseID:      req.CaseID,
+		FunnelID:    req.FunnelID,
+		FromStageID: req.FromStageID,
+		ToStageID:   &req.ToStageID,
+		Note:        req.Note,
+		ChangedBy:   *req.ChangedBy, // Aquí deberías obtener el ID del usuario que hace el cambio
+		ChangedAt:   time.Now(),
+		Action:      "move",
+	}
+
+	repo := repository.MessageRepository{}
+	if err := repo.SetCaseFunnelStage(caseFunnelStage); err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al actualizar la etapa del funnel del caso", nil, err)
+		return
+
+	}
+
+	// Si changed_by no viene en el body, lo puedes obtener del contexto/auth
+
+	utils.Respond(c, http.StatusOK, true, "Etapa del funnel del caso actualizada correctamente", nil, nil)
+}
+
+func (m *MessageEntry) CloseCase(c *gin.Context) {
+	var req models.CaseCloseRequest
+
+	// Bind del JSON
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
+		return
+	}
+
+	repo := repository.MessageRepository{}
+	if err := repo.CloseCase(req); err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al cerrar el caso", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Caso cerrado correctamente", nil, nil)
+}
+
 // Helper para manejar punteros string nulos
 func strOrEmpty(s *string) string {
 	if s != nil {

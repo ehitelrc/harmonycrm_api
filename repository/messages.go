@@ -201,3 +201,52 @@ func (r *MessageRepository) GetCurrentCaseFunnel(caseID int) (models.VWCaseCurre
 	err := config.DB.Where("case_id = ?", caseID).Order("last_changed_by DESC").First(&caseFunnel).Error
 	return caseFunnel, err
 }
+
+func (r *MessageRepository) SetCaseFunnelStage(payload models.CaseFunnel) error {
+	return config.DB.Transaction(func(tx *gorm.DB) error {
+		// 1) Actualizar el case con el nuevo funnel_id (si es necesario)
+		if err := tx.Model(&models.Case{}).
+			Where("id = ?", payload.CaseID).
+			Update("funnel_id", payload.FunnelID).Error; err != nil {
+			return fmt.Errorf("error al actualizar el funnel del caso %d: %w", payload.CaseID, err)
+		}
+
+		if err := tx.Create(&payload).Error; err != nil {
+			return fmt.Errorf("no se pudo crear el log case_funnel (move): %w", err)
+		}
+
+		return nil
+	})
+}
+
+func (r *MessageRepository) CloseCase(request models.CaseCloseRequest) error {
+	return config.DB.Transaction(func(tx *gorm.DB) error {
+		// 1) Actualizar el case con el nuevo estado 'closed'
+		if err := tx.Model(&models.Case{}).
+			Where("id = ?", request.CaseID).
+			Updates(map[string]interface{}{
+				"closed_at": gorm.Expr("NOW()"),
+				"status":    "closed",
+				"funnel_id": request.FunnelID,
+			}).Error; err != nil {
+			return fmt.Errorf("error al cerrar el caso %d: %w", request.CaseID, err)
+		}
+
+		// 2) Insertar log en case_funnel (acción 'close')
+		entry := models.CaseFunnel{
+			CaseID:      request.CaseID,
+			FunnelID:    request.FunnelID,
+			FromStageID: nil,
+			ToStageID:   nil,
+			Note:        &request.Note,
+			ChangedBy:   request.ClosedBy,
+			Action:      "close",
+			// ChangedAt: lo pone la DB (DEFAULT now())
+		}
+		if err := tx.Create(&entry).Error; err != nil {
+			return fmt.Errorf("no se pudo crear el log case_funnel (close): %w", err)
+		}
+
+		return nil
+	})
+}

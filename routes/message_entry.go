@@ -44,4 +44,10 @@ func InitializeMessage(r gin.RouterGroup, hub *ws.Hub) {
 	// Current case funnel
 	api.GET("/entry/case_funnel/current/:case_id", controller.GetCurrentCaseFunnel)
 
+	// Set case funnel stage
+	api.POST("/entry/case_funnel/set_stage", controller.SetCaseFunnelStage)
+
+	// Close case
+	api.POST("/entry/close_case", controller.CloseCase)
+
 }

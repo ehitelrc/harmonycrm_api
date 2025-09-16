@@ -49,3 +49,23 @@ func (lr *LoginRepository) Login(email string, password string, companyID int) (
 
 	// return &userRolePermissions, nil
 }
+
+func (lr *LoginRepository) GetUserPermissions(userID int, companyID int) (*[]models.UserEffectivePermission, error) {
+	var permissions []models.UserEffectivePermission
+
+	err := config.DB.Where("user_id = ? AND company_id = ?", userID, companyID).Find(&permissions).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var data struct {
+		RowsAffected int64 `gorm:"column:rows_affected"`
+	}
+	data.RowsAffected = int64(len(permissions))
+	if data.RowsAffected == 0 {
+		return nil, nil
+	}
+
+	return &permissions, nil
+
+}
