@@ -71,3 +71,39 @@ func (ac *AgentController) Delete(c *gin.Context) {
 	}
 	utils.Respond(c, http.StatusOK, true, "Agente eliminado correctamente", nil, nil)
 }
+
+// GET /agents-with-user-info
+func (ac *AgentController) GetAllWithUserInfo(c *gin.Context) {
+	rows, err := ac.repo.GetAllWithUserInfo()
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener agentes con info de usuario", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Agentes con info de usuario obtenidos correctamente", rows, nil)
+}
+
+// GET /agents-with-user-info/:user_id
+func (ac *AgentController) GetByUserIDWithUserInfo(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("user_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "user_id inválido", nil, err)
+		return
+	}
+	row, err := ac.repo.GetByUserIDWithUserInfo(uint(id))
+	if err != nil {
+		utils.Respond(c, http.StatusNotFound, false, "Agente con info de usuario no encontrado", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Agente con info de usuario encontrado", row, nil)
+}
+
+// GET /agents/non-agents
+func (ac *AgentController) GetAllNonAgents(c *gin.Context) {
+	rows, err := ac.repo.GetAllNonAgents()
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener usuarios no agentes", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Usuarios no agentes obtenidos correctamente", rows, nil)
+}

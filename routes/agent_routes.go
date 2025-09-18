@@ -13,4 +13,11 @@ func RegisterAgentRoutes(r *gin.RouterGroup) {
 	r.GET("/agents/:user_id", ctrl.GetByUserID)
 	r.POST("/agents", ctrl.Create)
 	r.DELETE("/agents/:user_id", ctrl.Delete)
+
+	// Agentes con info de usuario
+	r.GET("/agents/agents-with-user-info", ctrl.GetAllWithUserInfo)
+	r.GET("/agents/agents-with-user-info/:user_id", ctrl.GetByUserIDWithUserInfo)
+
+	// Non agents users
+	r.GET("/agents/non-agents", ctrl.GetAllNonAgents)
 }
