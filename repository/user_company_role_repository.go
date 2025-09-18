@@ -116,3 +116,80 @@ func (r *UserCompanyRoleRepository) GetPermissionsByCompanyUser(companyID, userI
 	`, companyID, userID).Scan(&perms).Error
 	return perms, err
 }
+
+// GET /user-company-roles/user/:user_id/company/:company_id
+func (r *UserCompanyRoleRepository) GetByUserAndCompanyMixed(userID, companyID uint) ([]models.UserRoleCompanyManage, error) {
+
+	rows := []models.Role{}
+
+	err := config.DB.Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var result []models.UserCompanyRole
+
+	err = config.DB.Where("user_id = ? AND company_id = ?", userID, companyID).Find(&result).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var response []models.UserRoleCompanyManage
+
+	for _, role := range rows {
+
+		hasRole := false
+		for _, ur := range result {
+			if ur.RoleID == role.ID {
+				hasRole = true
+				break
+			}
+		}
+
+		response = append(response, models.UserRoleCompanyManage{
+			UserID:          userID,
+			CompanyID:       companyID,
+			RoleID:          role.ID,
+			UserRoleCompany: role.Name,
+			HasRole:         hasRole,
+		})
+	}
+
+	return response, nil
+
+}
+
+// Batch update: recibe array de {user_id, company_id, role_id, has_role}
+func (r *UserCompanyRoleRepository) BatchUpdate(bodies []models.UserRoleCompanyManage) error {
+	tx := config.DB.Begin()
+
+	for _, body := range bodies {
+		if body.HasRole {
+			// Crear si no existe
+			var exists int64
+			tx.Model(&models.UserCompanyRole{}).
+				Where("user_id = ? AND company_id = ? AND role_id = ?", body.UserID, body.CompanyID, body.RoleID).
+				Count(&exists)
+			if exists == 0 {
+				newEntry := models.UserCompanyRole{
+					UserID:    body.UserID,
+					CompanyID: body.CompanyID,
+					RoleID:    body.RoleID,
+				}
+				if err := tx.Create(&newEntry).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		} else {
+			// Eliminar si existe
+			if err := tx.Where("user_id = ? AND company_id = ? AND role_id = ?", body.UserID, body.CompanyID, body.RoleID).
+				Delete(&models.UserCompanyRole{}).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+	}
+
+	return tx.Commit().Error
+}

@@ -89,3 +89,19 @@ func (c *CompanyController) Delete(ctx *gin.Context) {
 
 	utils.Respond(ctx, http.StatusOK, true, "Compañía eliminada correctamente", nil, nil)
 }
+
+func (c *CompanyController) GetByUserID(ctx *gin.Context) {
+	userID, err := strconv.Atoi(ctx.Param("user_id"))
+	if err != nil {
+		utils.Respond(ctx, http.StatusBadRequest, false, "ID de usuario inválido", nil, err)
+		return
+	}
+
+	companies, err := c.repo.GetByUserID(uint(userID))
+	if err != nil {
+		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener compañías del usuario", nil, err)
+		return
+	}
+
+	utils.Respond(ctx, http.StatusOK, true, "Compañías del usuario obtenidas correctamente", companies, nil)
+}

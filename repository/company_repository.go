@@ -37,3 +37,9 @@ func (r *CompanyRepository) Update(company *models.Company) error {
 func (r *CompanyRepository) Delete(id uint) error {
 	return config.DB.Delete(&models.Company{}, id).Error
 }
+
+func (r *CompanyRepository) GetByUserID(userID uint) ([]models.CompanyUserView, error) {
+	var companies []models.CompanyUserView
+	err := config.DB.Where("user_id = ?", userID).Find(&companies).Error
+	return companies, err
+}

@@ -27,4 +27,9 @@ func RegisterUserCompanyRoleRoutes(r *gin.RouterGroup) {
 
 	// 2) Permisos por compañía y usuario (efectivos por sus roles en esa company)
 	r.GET("/user-company-roles/company/:company_id/user/:user_id/permissions", ctrl.GetPermissionsByCompanyUser)
+
+	r.GET("/user-company-roles/user/:user_id/company/:company_id", ctrl.GetByUserAndCompanyMixed)
+
+	// Batch update
+	r.PUT("/user-company-roles/batch", ctrl.BatchUpdate)
 }

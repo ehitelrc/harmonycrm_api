@@ -50,6 +50,23 @@ func (uc *UserController) Create(c *gin.Context) {
 		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
 		return
 	}
+
+	// Validar que venga contraseña
+	if body.PasswordHash == "" {
+		utils.Respond(c, http.StatusBadRequest, false, "La contraseña es requerida", nil, nil)
+		return
+	}
+
+	// Hashear la contraseña
+	hash, err := utils.HashPassword(body.PasswordHash)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al procesar contraseña", nil, err)
+		return
+	}
+
+	// Reemplazar la contraseña en texto plano con el hash
+	body.PasswordHash = hash
+
 	if err := uc.repo.Create(&body); err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al crear usuario", nil, err)
 		return
@@ -83,4 +100,46 @@ func (uc *UserController) Delete(c *gin.Context) {
 		return
 	}
 	utils.Respond(c, http.StatusOK, true, "Usuario eliminado correctamente", nil, nil)
+}
+
+// PUT /users/:id/password
+func (uc *UserController) UpdatePassword(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "ID inválido", nil, err)
+		return
+	}
+
+	var body struct {
+		NewPassword string `json:"new_password" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&body); err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
+		return
+	}
+
+	// Hashear la nueva contraseña
+	hash, err := utils.HashPassword(body.NewPassword)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al procesar contraseña", nil, err)
+		return
+	}
+
+	// Obtener el usuario actual
+	user, err := uc.repo.GetByID(uint(id))
+	if err != nil {
+		utils.Respond(c, http.StatusNotFound, false, "Usuario no encontrado", nil, err)
+		return
+	}
+
+	// Actualizar el hash de la contraseña
+	user.PasswordHash = hash
+
+	if err := uc.repo.Update(user); err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al actualizar contraseña", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Contraseña actualizada correctamente", nil, nil)
 }

@@ -14,4 +14,7 @@ func RegisterCompanyRoutes(r *gin.RouterGroup) {
 	r.POST("/companies", controller.Create)
 	r.PUT("/companies", controller.Update)
 	r.DELETE("/companies/:id", controller.Delete)
+
+	// By user id
+	r.GET("/companies/user/:user_id", controller.GetByUserID)
 }

@@ -13,5 +13,10 @@ func RegisterUserRoutes(r *gin.RouterGroup) {
 	r.GET("/users/:id", ctrl.GetByID)
 	r.POST("/users", ctrl.Create)
 	r.PUT("/users", ctrl.Update) // objeto completo con id
+
+	// Set New password
+	r.PUT("/users/:id/password", ctrl.UpdatePassword)
+
 	r.DELETE("/users/:id", ctrl.Delete)
+
 }

@@ -171,3 +171,38 @@ func (uc *UserCompanyRoleController) GetPermissionsByCompanyUser(c *gin.Context)
 	}
 	utils.Respond(c, http.StatusOK, true, "Permisos efectivos por compañía y usuario", perms, nil)
 }
+
+// GET /user-company-roles/user/:user_id/company/1
+func (uc *UserCompanyRoleController) GetByUserAndCompanyMixed(c *gin.Context) {
+	userID, err := strconv.Atoi(c.Param("user_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "user_id inválido", nil, err)
+		return
+	}
+	companyID, err := strconv.Atoi(c.Param("company_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+
+	rows, err := uc.repo.GetByUserAndCompanyMixed(uint(userID), uint(companyID))
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener por usuario y compañía", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Asignaciones por usuario y compañía", rows, nil)
+}
+
+// PUT /user-company-roles/batch
+func (uc *UserCompanyRoleController) BatchUpdate(c *gin.Context) {
+	var bodies []models.UserRoleCompanyManage
+	if err := c.ShouldBindJSON(&bodies); err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
+		return
+	}
+	if err := uc.repo.BatchUpdate(bodies); err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "No se pudo realizar la actualización masiva", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Actualización masiva realizada correctamente", bodies, nil)
+}
