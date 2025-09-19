@@ -107,3 +107,66 @@ func (ac *AgentDepartmentAssignmentController) Delete(c *gin.Context) {
 	}
 	utils.Respond(c, http.StatusOK, true, "Asignación eliminada correctamente", nil, nil)
 }
+
+// GET /agent-department-assignments/company/:company_id
+func (ac *AgentDepartmentAssignmentController) GetByCompany(c *gin.Context) {
+	companyID, err := strconv.Atoi(c.Param("company_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+	rows, err := ac.repo.GetByCompany(uint(companyID))
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener asignaciones por compañía", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Asignaciones por compañía", rows, nil)
+}
+
+// GET /agent-department-assignments/company/:company_id/agent/:agent_id
+func (ac *AgentDepartmentAssignmentController) GetByCompanyAndAgent(c *gin.Context) {
+	companyID, err := strconv.Atoi(c.Param("company_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+	agentID, err := strconv.Atoi(c.Param("agent_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "agent_id inválido", nil, err)
+		return
+	}
+	rows, err := ac.repo.GetByCompanyAndAgent(uint(companyID), uint(agentID))
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener asignaciones por compañía y agente", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Asignaciones por compañía y agente", rows, nil)
+}
+
+// POST /agent-department-assignments/company/:company_id/agent/:agent_id
+// recibe JSON body con array de VwAgentDepartmentAssignment
+func (ac *AgentDepartmentAssignmentController) SetAgentDepartments(c *gin.Context) {
+	companyID, err := strconv.Atoi(c.Param("company_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+	agentID, err := strconv.Atoi(c.Param("agent_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "agent_id inválido", nil, err)
+		return
+	}
+
+	var assignments []models.VwAgentDepartmentAssignment
+	if err := c.ShouldBindJSON(&assignments); err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
+		return
+	}
+
+	if err := ac.repo.SetAgentDepartments(uint(companyID), uint(agentID), assignments); err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al actualizar asignaciones del agente", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Asignaciones del agente actualizadas correctamente", nil, nil)
+}

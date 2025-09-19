@@ -50,6 +50,12 @@ func (ac *AgentController) Create(c *gin.Context) {
 		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
 		return
 	}
+
+	if err := ac.repo.Delete(uint(body.UserID)); err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al eliminar agente", nil, err)
+		return
+	}
+
 	// body.UserID debe venir en el JSON
 	if err := ac.repo.Create(&body); err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al crear agente", nil, err)

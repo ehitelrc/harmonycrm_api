@@ -45,8 +45,8 @@ func (r *AgentRepository) GetByUserIDWithUserInfo(userID uint) (*models.AgentUse
 	return &row, nil
 }
 
-func (r *AgentRepository) GetAllNonAgents() ([]models.AgentUser, error) {
-	var rows []models.AgentUser
+func (r *AgentRepository) GetAllNonAgents() ([]models.NonAgentUser, error) {
+	var rows []models.NonAgentUser
 	err := config.DB.Find(&rows).Error
 	return rows, err
 }
