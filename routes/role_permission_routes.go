@@ -19,4 +19,8 @@ func RegisterRolePermissionRoutes(r *gin.RouterGroup) {
 
 	// Reemplazar todos los permisos de un rol (transacción)
 	r.PUT("/role-permissions/role/:role_id", ctrl.ReplaceForRole)
+
+	// permisos por rol con asignación (vista)
+	r.GET("/role-permissions/view/role/:role_id", ctrl.GetViewByRole)
+
 }

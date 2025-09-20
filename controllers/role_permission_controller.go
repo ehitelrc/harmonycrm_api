@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"harmony_api/models"
 	"harmony_api/repository"
 	"harmony_api/utils"
 	"net/http"
@@ -18,10 +19,6 @@ func NewRolePermissionController() *RolePermissionController {
 }
 
 // DTOs
-type assignRequest struct {
-	RoleID       uint `json:"role_id" binding:"required"`
-	PermissionID uint `json:"permission_id" binding:"required"`
-}
 
 type replaceRequest struct {
 	PermissionIDs []uint `json:"permission_ids"` // puede venir vacío para dejar el rol sin permisos
@@ -59,16 +56,20 @@ func (rc *RolePermissionController) GetByPermission(c *gin.Context) {
 
 // POST /role-permissions  (asignar uno)
 func (rc *RolePermissionController) Assign(c *gin.Context) {
-	var body assignRequest
+	var body []models.AssignRequest
+
 	if err := c.ShouldBindJSON(&body); err != nil {
 		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
 		return
 	}
-	if err := rc.repo.Assign(body.RoleID, body.PermissionID); err != nil {
-		utils.Respond(c, http.StatusInternalServerError, false, "Error al asignar permiso al rol", nil, err)
+
+	if err := rc.repo.AssignBatch(body); err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al asignar permisos al rol", nil, err)
 		return
 	}
-	utils.Respond(c, http.StatusCreated, true, "Permiso asignado al rol", body, nil)
+
+	utils.Respond(c, http.StatusOK, true, "Permisos asignados al rol", nil, nil)
+
 }
 
 // DELETE /role-permissions/role/:role_id/permission/:permission_id (desasignar uno)
@@ -110,4 +111,19 @@ func (rc *RolePermissionController) ReplaceForRole(c *gin.Context) {
 		"role_id":        roleID,
 		"permission_ids": body.PermissionIDs,
 	}, nil)
+}
+
+// GET /role-permissions/view/role/:role_id
+func (rc *RolePermissionController) GetViewByRole(c *gin.Context) {
+	roleID, err := strconv.Atoi(c.Param("role_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "role_id inválido", nil, err)
+		return
+	}
+	rows, err := rc.repo.GetViewByRole(uint(roleID))
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener permisos por rol (vista)", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Permisos por rol (vista)", rows, nil)
 }
