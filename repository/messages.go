@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
 	"harmony_api/config"
 	"harmony_api/models"
@@ -194,11 +195,18 @@ func (r *MessageRepository) AssignCaseToCampaign(caseID int, campaignID int, cha
 	})
 }
 
-//GetCurrentCaseFunnel
-
+// GetCurrentCaseFunnel
 func (r *MessageRepository) GetCurrentCaseFunnel(caseID int) (models.VWCaseCurrentStage, error) {
 	var caseFunnel models.VWCaseCurrentStage
-	err := config.DB.Where("case_id = ?", caseID).Order("last_changed_by DESC").First(&caseFunnel).Error
+	err := config.DB.Where("case_id = ?", caseID).
+		Order("last_changed_by DESC").
+		First(&caseFunnel).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// No hay registros -> retornamos objeto vacío y nil error
+		return models.VWCaseCurrentStage{}, nil
+	}
+
 	return caseFunnel, err
 }
 
@@ -249,4 +257,23 @@ func (r *MessageRepository) CloseCase(request models.CaseCloseRequest) error {
 
 		return nil
 	})
+}
+
+// GetCaseGeneralInformation
+func (r *MessageRepository) GetCaseGeneralInformation(companyID, campaignID, stageID uint) ([]models.VWCaseGeneralInformation, error) {
+	var cases []models.VWCaseGeneralInformation
+	err := config.DB.
+		Where("company_id = ? AND campaign_id = ? AND current_stage_id = ?", companyID, campaignID, stageID).
+		Find(&cases).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// aseguramos que aunque no haya resultados, devuelva slice vacío y no nil
+	if cases == nil {
+		cases = []models.VWCaseGeneralInformation{}
+	}
+
+	return cases, nil
 }

@@ -498,6 +498,39 @@ func (m *MessageEntry) CloseCase(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, true, "Caso cerrado correctamente", nil, nil)
 }
 
+func (m *MessageEntry) GetCaseGeneralInformation(c *gin.Context) {
+	companyIDStr := c.Param("company_id")
+	companyID, err := strconv.Atoi(companyIDStr)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+
+	campaignIDStr := c.Param("campaign_id")
+	campaignID, err := strconv.Atoi(campaignIDStr)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "campaign_id inválido", nil, err)
+		return
+	}
+
+	stageIDStr := c.Param("stage_id")
+	stageID, err := strconv.Atoi(stageIDStr)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "stage_id inválido", nil, err)
+		return
+	}
+
+	repo := repository.MessageRepository{}
+	cases, err := repo.GetCaseGeneralInformation(uint(companyID), uint(campaignID), uint(stageID))
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener la información general de los casos", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Información general de los casos obtenida correctamente", cases, nil)
+
+}
+
 // Helper para manejar punteros string nulos
 func strOrEmpty(s *string) string {
 	if s != nil {

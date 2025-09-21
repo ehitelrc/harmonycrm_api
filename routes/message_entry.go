@@ -50,4 +50,7 @@ func InitializeMessage(r gin.RouterGroup, hub *ws.Hub) {
 	// Close case
 	api.POST("/entry/close_case", controller.CloseCase)
 
+	// Get case general information with company_id, campaign_id and stage_id
+	api.GET("/entry/case_general_info/:company_id/:campaign_id/:stage_id", controller.GetCaseGeneralInformation)
+
 }
