@@ -502,7 +502,7 @@ func (m *MessageEntry) SetCaseFunnelStage(c *gin.Context) {
 	}
 
 	caseFunnelStage := models.CaseFunnel{
-		ID:          uint(req.ToStageID),
+
 		CaseID:      req.CaseID,
 		FunnelID:    req.FunnelID,
 		FromStageID: req.FromStageID,
