@@ -41,6 +41,11 @@ func InitializeMessage(r gin.RouterGroup, hub *ws.Hub) {
 	// Assign to campaign
 	api.POST("/entry/assign_campaign", controller.AssignCaseToCampaign)
 
+	api.POST("/entry/assign_department", controller.AssignCaseToDepartment)
+
+	// Assign to agent
+	api.POST("/entry/assign_agent", controller.AssignCaseToAgent)
+
 	// Current case funnel
 	api.GET("/entry/case_funnel/current/:case_id", controller.GetCurrentCaseFunnel)
 

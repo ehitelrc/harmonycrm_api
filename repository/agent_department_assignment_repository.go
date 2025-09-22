@@ -82,3 +82,10 @@ func (r *AgentDepartmentAssignmentRepository) SetAgentDepartments(companyID, age
 		return nil
 	})
 }
+
+func (r *AgentDepartmentAssignmentRepository) GetAgentsByDepartment(companyID, departmentID uint) ([]models.AgentDepartmentInformation, error) {
+	var rows []models.AgentDepartmentInformation
+
+	err := config.DB.Where("company_id = ? AND department_id = ?", companyID, departmentID).Find(&rows).Error
+	return rows, err
+}

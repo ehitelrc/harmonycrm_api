@@ -24,4 +24,7 @@ func RegisterAgentDepartmentAssignmentRoutes(r *gin.RouterGroup) {
 	// set agent departments
 	// receives JSON body with array of VwAgentDepartmentAssignment
 	r.POST("/agent-department-assignments/company/:company_id/agent/:agent_id", ctrl.SetAgentDepartments)
+
+	// Get agets by department complete info
+	r.GET("/agent-department-assignments/company/:company_id/department/:department_id", ctrl.GetAgentsByDepartment)
 }

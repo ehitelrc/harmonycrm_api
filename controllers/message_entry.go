@@ -425,6 +425,52 @@ func (m *MessageEntry) AssignCaseToCampaign(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, true, "Caso asignado a la campaña correctamente", nil, nil)
 }
 
+func (m *MessageEntry) AssignCaseToDepartment(c *gin.Context) {
+	var req models.AssignCaseToDepartmentRequest
+
+	// Bind del JSON
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
+		return
+	}
+
+	// Si changed_by no viene en el body, lo puedes obtener del contexto/auth
+	if req.ChangedBy == 0 {
+		req.ChangedBy = c.GetInt("user_id") // ejemplo si lo guardas en middleware
+	}
+
+	repo := repository.MessageRepository{}
+	if err := repo.AssignCaseToDepartment(req.CaseID, req.DepartmentID, req.ChangedBy); err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al asignar el caso al departamento", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Caso asignado al departamento correctamente", nil, nil)
+}
+
+func (m *MessageEntry) AssignCaseToAgent(c *gin.Context) {
+	var req models.AssignCaseToAgentRequest
+
+	// Bind del JSON
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
+		return
+	}
+
+	// Si changed_by no viene en el body, lo puedes obtener del contexto/auth
+	if req.ChangedBy == 0 {
+		req.ChangedBy = c.GetInt("user_id") // ejemplo si lo guardas en middleware
+	}
+
+	repo := repository.MessageRepository{}
+	if err := repo.AssignCaseToAgent(req.CaseID, req.AgentID, req.ChangedBy); err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al asignar el caso al agente", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Caso asignado al agente correctamente", nil, nil)
+}
+
 // GetCurrentCaseFunnel
 func (m *MessageEntry) GetCurrentCaseFunnel(c *gin.Context) {
 	// Obtener case_id desde los parámetros de la URL

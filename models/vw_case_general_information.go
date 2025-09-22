@@ -22,6 +22,7 @@ type VWCaseGeneralInformation struct {
 	DepartmentName     *string `json:"department_name,omitempty" gorm:"column:department_name"`
 	CampaignID         *uint   `json:"campaign_id,omitempty" gorm:"column:campaign_id"`
 	AgentName          *string `json:"agent_name,omitempty" gorm:"column:agent_name"`
+	ColorHex           *string `json:"color_hex,omitempty" gorm:"column:color_hex"`
 }
 
 func (VWCaseGeneralInformation) TableName() string {

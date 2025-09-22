@@ -170,3 +170,24 @@ func (ac *AgentDepartmentAssignmentController) SetAgentDepartments(c *gin.Contex
 
 	utils.Respond(c, http.StatusOK, true, "Asignaciones del agente actualizadas correctamente", nil, nil)
 }
+
+// GET /agent-department-assignments/company/:company_id/department/:department_id
+// obtiene agentes asignados a un departamento con info completa
+func (ac *AgentDepartmentAssignmentController) GetAgentsByDepartment(c *gin.Context) {
+	companyID, err := strconv.Atoi(c.Param("company_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+	deptID, err := strconv.Atoi(c.Param("department_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "department_id inválido", nil, err)
+		return
+	}
+	rows, err := ac.repo.GetAgentsByDepartment(uint(companyID), uint(deptID))
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener agentes por departamento", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Agentes por departamento", rows, nil)
+}

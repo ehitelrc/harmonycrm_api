@@ -177,18 +177,44 @@ func (r *MessageRepository) AssignCaseToCampaign(caseID int, campaignID int, cha
 		}
 
 		// 3) Insertar log en case_funnel (acción 'assign')
-		entry := models.CaseFunnel{
-			CaseID:      caseID,
-			FunnelID:    *campaign.FunnelID,
-			FromStageID: nil,
-			ToStageID:   nil,
-			Note:        nil,
-			ChangedBy:   changedBy,
-			Action:      "assign",
-			// ChangedAt: lo pone la DB (DEFAULT now())
+		// entry := models.CaseFunnel{
+		// 	CaseID:      caseID,
+		// 	FunnelID:    *campaign.FunnelID,
+		// 	FromStageID: nil,
+		// 	ToStageID:   nil,
+		// 	Note:        nil,
+		// 	ChangedBy:   changedBy,
+		// 	Action:      "assign",
+		// 	// ChangedAt: lo pone la DB (DEFAULT now())
+		// }
+		// if err := tx.Create(&entry).Error; err != nil {
+		// 	return fmt.Errorf("no se pudo crear el log case_funnel (assign): %w", err)
+		// }
+
+		return nil
+	})
+}
+
+func (r *MessageRepository) AssignCaseToDepartment(caseID int, departmentID int, changedBy int) error {
+	return config.DB.Transaction(func(tx *gorm.DB) error {
+		// 1) Actualizar el caso con el nuevo department_id
+		if err := tx.Model(&models.Case{}).
+			Where("id = ?", caseID).
+			Update("department_id", departmentID).Error; err != nil {
+			return fmt.Errorf("error al asignar el caso %d al departamento %d: %w", caseID, departmentID, err)
 		}
-		if err := tx.Create(&entry).Error; err != nil {
-			return fmt.Errorf("no se pudo crear el log case_funnel (assign): %w", err)
+
+		return nil
+	})
+}
+
+func (r *MessageRepository) AssignCaseToAgent(caseID int, agentID int, changedBy int) error {
+	return config.DB.Transaction(func(tx *gorm.DB) error {
+		// 1) Actualizar el caso con el nuevo agent_id
+		if err := tx.Model(&models.Case{}).
+			Where("id = ?", caseID).
+			Update("agent_id", agentID).Error; err != nil {
+			return fmt.Errorf("error al asignar el caso %d al agente %d: %w", caseID, agentID, err)
 		}
 
 		return nil
