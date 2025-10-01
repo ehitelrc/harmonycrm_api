@@ -21,9 +21,9 @@ func (r *CampaignRepository) GetByCompany(companyID uint) (*[]models.CampaignWit
 }
 
 // GetByID
-func (r *CampaignRepository) GetByID(id uint) (map[string]interface{}, error) {
+func (r *CampaignRepository) GetByID(id uint) (*models.CampaignWithFunnel, error) {
 
-	var result map[string]interface{}
+	var result *models.CampaignWithFunnel
 	err := config.DB.Debug().Model(&models.CampaignWithFunnel{}).Where("campaign_id = ?", id).First(&result).Error
 	return result, err
 }

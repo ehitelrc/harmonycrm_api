@@ -42,3 +42,15 @@ func (r *ChannelRepository) GetChannerlByCaseID(caseId uint) (*models.VWCaseChan
 	}
 	return &channelIntegration, nil
 }
+
+func (r *ChannelRepository) CreateWhatsappTemplate(template *models.ChannelWhatsAppTemplate) error {
+	return config.DB.Create(template).Error
+}
+
+func (r *ChannelRepository) GetWhatsappTemplatesByCompanyID(companyId uint) ([]models.CompanyChannelTemplateView, error) {
+	var templates []models.CompanyChannelTemplateView
+	if err := config.DB.Where("company_id = ?", companyId).Find(&templates).Error; err != nil {
+		return nil, err
+	}
+	return templates, nil
+}

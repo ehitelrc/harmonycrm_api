@@ -14,4 +14,9 @@ func RegisterChannelRoutes(r *gin.RouterGroup) {
 	r.POST("/channels", controller.Create)
 	r.PUT("/channels", controller.Update)
 	r.DELETE("/channels/:id", controller.Delete)
+
+	// Channel Whatsapp template routes
+	r.POST("/channels/whatsapp/templates", controller.CreateWhatsappTemplate)
+	r.GET("/channels/whatsapp/templates/company/:company_id", controller.GetWhatsappTemplatesByCompanyID)
+
 }

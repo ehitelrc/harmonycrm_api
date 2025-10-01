@@ -1,0 +1,49 @@
+ 
+
+docker login -u "ehitelrc" -p "Tuanis1978" docker.io
+docker tag ehitelrc/xminuto_service:latest ehitelrc/harmony_service:latest
+sudo docker push ehitelrc/harmony_service:latest
+
+
+
+sudo vi  ~/.docker/config.json
+
+
+ngrok http 8080 --hostname=harmony.ngrok.dev
+
+
+***********************
+************************
+PARA LA MAQUINA VIRITUAL
+
+
+# Detener el contenedor
+sudo docker stop 8397b3ef6325
+
+# Eliminar el contenedor
+sudo docker rm 8397b3ef6325
+
+# Eliminar imagen
+sudo docker rmi 57e1207c6627
+
+# Crear imagen y subir al hub
+
+docker buildx build --platform linux/amd64 \
+  -t ehitelrc/harmony_service:latest \
+  --push \
+  .
+
+
+# Instalar imagen
+docker pull ehitelrc/harmony_service
+
+# Instalar contenedor
+docker run -d --name harmony_service \
+  -p 8098:8098 \
+  --restart unless-stopped \
+  ehitelrc/harmony_service:latest
+
+// Por nombre
+
+  docker rm -f harmony_service
+  docker rmi -f ehitelrc/harmony_service:latest

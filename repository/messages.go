@@ -249,6 +249,13 @@ func (r *MessageRepository) SetCaseFunnelStage(payload models.CaseFunnel) error 
 			return fmt.Errorf("no se pudo crear el log case_funnel (move): %w", err)
 		}
 
+		// Update the current_stage_id in the cases table
+		if err := tx.Model(&models.Case{}).
+			Where("id = ?", payload.CaseID).
+			Update("current_stage_id", payload.ToStageID).Error; err != nil {
+			return fmt.Errorf("error al actualizar el current_stage_id del caso %d: %w", payload.CaseID, err)
+		}
+
 		return nil
 	})
 }

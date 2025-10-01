@@ -10,10 +10,10 @@ import (
 var DB *gorm.DB
 
 func LoadConfig() {
-	dbUser := "usreprac"
-	dbPassword := "224wolFe224!" //os.Getenv("DB_PASSWORD") // O ingrésalo directamente en desarrollo
+	dbUser := "harmony"
+	dbPassword := "harmonyValle2025" //os.Getenv("DB_PASSWORD") // O ingrésalo directamente en desarrollo
 	dbName := "harmony"
-	dbHost := "20.118.233.183"
+	dbHost := "20.81.232.132"
 	dbPort := "5432"
 
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
