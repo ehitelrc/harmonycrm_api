@@ -58,4 +58,6 @@ func InitializeMessage(r gin.RouterGroup, hub *ws.Hub) {
 	// Get case general information with company_id, campaign_id and stage_id
 	api.GET("/entry/case_general_info/:company_id/:campaign_id/:stage_id", controller.GetCaseGeneralInformation)
 
+	// Get unassigned cases by company_id
+	api.GET("/entry/unassigned_cases/:company_id", controller.GetCasesWithoutAgentByCompanyID)
 }

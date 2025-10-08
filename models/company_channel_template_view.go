@@ -19,6 +19,8 @@ type CompanyChannelTemplateView struct {
 	TemplateName   *string `json:"template_name,omitempty" gorm:"column:template_name"`
 	Language       *string `json:"language,omitempty" gorm:"column:language"`
 	TemplateActive *bool   `json:"template_active,omitempty" gorm:"column:template_active"`
+
+	TemplateUrlWebhook string `json:"template_url_webhook" gorm:"column:template_url_webhook"`
 }
 
 func (CompanyChannelTemplateView) TableName() string {

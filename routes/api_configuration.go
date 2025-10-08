@@ -73,6 +73,11 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 	// Campaign Pushing
 	RegisterCampaignPushingRoutes(api)
 
+	// Locations
+	LocationsRoutes(api)
+
+	RegisterCaseItemRoutes(api)
+
 	// Endpoint de verificación de estado
 	api.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{

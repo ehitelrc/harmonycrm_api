@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"harmony_api/config"
 	"harmony_api/models"
+	"harmony_api/utils"
 
 	"gorm.io/gorm"
 )
@@ -42,6 +43,8 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 		// Recuperar ID generado
 		pushID = header.ID
 
+		var numbers []string
+
 		// 2. Guardar leads si existen
 		if len(data.Leads) > 0 {
 			var leads []models.CampaignWhatsappPushLead
@@ -71,11 +74,14 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 				}
 
 				leads = append(leads, lead)
+				numbers = append(numbers, l.PhoneNumber)
 			}
 
 			if err := tx.Create(&leads).Error; err != nil {
 				return err
 			}
+
+			utils.SendTemplateToMany(template.TemplateUrlWebhook, *template.AppIdentifier, *template.AccessToken, *template.TemplateName, *template.Language, numbers)
 		}
 
 		return nil

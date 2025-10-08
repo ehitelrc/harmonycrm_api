@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"harmony_api/config"
 	"harmony_api/models"
+	"strconv"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -14,6 +16,36 @@ type MessageRepository struct {
 }
 
 func (r *MessageRepository) CreateMessage(message models.IncomingMessage) (*models.Message, error) {
+
+	// Vamos a investigar si viene de un QR de contacto inicial
+
+	prefix := "ccc||--FCH--||ccc"
+
+	isQR := false
+
+	var qrCompanyID, qrCampaignID, qrDepartmentID, qrUserID int
+
+	if strings.HasPrefix(message.TextMessage, prefix) {
+		encryptedPart := strings.TrimPrefix(message.TextMessage, prefix)
+		encryptedPart = strings.TrimSpace(encryptedPart)
+
+		parts := strings.Split(encryptedPart, "|")
+
+		if len(parts) >= 4 {
+
+			// Parte 0 es de la compañía
+			// Parte 1 es el ID de la campaña
+			// Parte 2 es el ID del usuario (si viene)
+			qrCompanyID, _ = strconv.Atoi(parts[0])
+			qrCampaignID, _ = strconv.Atoi(parts[1])
+			qrUserID, _ = strconv.Atoi(parts[2])
+			qrDepartmentID, _ = strconv.Atoi(parts[3])
+
+			isQR = true
+
+		}
+	}
+
 	var channnel models.VWChannel
 
 	// Buscar canal por app_identifier
@@ -62,6 +94,84 @@ func (r *MessageRepository) CreateMessage(message models.IncomingMessage) (*mode
 			newCase.ClientID = clientID
 		}
 
+		// Si viene de QR, asignar company_id y campaign_id
+
+		if isQR {
+
+			newContact := models.QrLead{
+				CompanyID:    qrCompanyID,
+				CampaignID:   qrCampaignID,
+				DepartmentID: &qrDepartmentID,
+				UserID:       &qrUserID,
+				ContactPhone: message.SenderID,
+				Status:       "pending",
+			}
+
+			if hasClient {
+				newContact.ClientID = clientID
+			}
+
+			if err := config.DB.Create(&newContact).Error; err != nil {
+				return nil, fmt.Errorf("error al crear el contacto desde QR: %w", err)
+			}
+
+			newCase.DepartmentID = uint(qrDepartmentID)
+
+			newCase.CompanyID = uint(qrCompanyID)
+
+			// Get campaing funnel_id
+			var campaign models.Campaign
+			if err := config.DB.First(&campaign, qrCampaignID).Error; err != nil {
+				return nil, fmt.Errorf("error al obtener la campaña: %w", err)
+			}
+
+			// Customer social network
+
+			if campaign.FunnelID != nil {
+				newCase.FunnelID = uint(*campaign.FunnelID)
+			}
+
+			if hasClient {
+
+				// Verify if the client already has a social account for this channel
+
+				currentClientChannel := models.ClientSocialAccount{}
+
+				err := config.DB.Where("client_id = ? AND channel_id = ?", *clientID, channnel.ChannelID).
+					First(&currentClientChannel).Error
+
+				if err == nil {
+					// Ya existe, no hacer nada
+				} else if err != gorm.ErrRecordNotFound {
+
+					channelStr := channnel.ChannelID
+					clientChannelId, err := strconv.Atoi(channelStr) // convierte string → int
+
+					if err != nil {
+						return nil, fmt.Errorf("error al convertir channel_id a int: %w", err)
+					}
+
+					clientChannel := models.ClientSocialAccount{
+						ClientID:   *clientID,
+						ChannelID:  uint(clientChannelId),
+						ExternalID: message.SenderID,
+						Username:   message.FirstName,
+						IsActive:   true,
+					}
+
+					if err := config.DB.Create(&clientChannel).Error; err != nil {
+						return nil, fmt.Errorf("error al crear la cuenta social del cliente: %w", err)
+					}
+				}
+
+			}
+
+			newCase.CampaignID = uint(qrCampaignID)
+
+			message.TextMessage = "Hola, soy " + message.FirstName + " Me he contactado a través del QR."
+
+		}
+
 		if err := config.DB.Create(&newCase).Error; err != nil {
 			return nil, fmt.Errorf("error al crear el caso: %w", err)
 		}
@@ -90,6 +200,22 @@ func (r *MessageRepository) CreateMessage(message models.IncomingMessage) (*mode
 
 	fmt.Println("✉️  Nuevo mensaje creado:", newMessage.ID)
 	return &newMessage, nil
+}
+
+// Get case by id
+func (r *MessageRepository) GetCaseByID(id uint) (*models.Case, error) {
+	var caseItem models.Case
+	if err := config.DB.First(&caseItem, id).Error; err != nil {
+		return nil, err
+	}
+	return &caseItem, nil
+}
+
+// Cases without agents assigned by company
+func (r *MessageRepository) GetUnassignedCasesByCompanyID(companyID int) ([]models.CaseWithChannel, error) {
+	var unassignedCases []models.CaseWithChannel
+	err := config.DB.Where("company_id = ? AND agent_id IS NULL AND status = ?", companyID, "open").Find(&unassignedCases).Error
+	return unassignedCases, err
 }
 
 func (r *MessageRepository) GetActiveCasesByAgentID(agentID string) ([]models.CaseWithChannel, error) {

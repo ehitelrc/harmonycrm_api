@@ -68,6 +68,29 @@ func (m *MessageEntry) ReceiveMessageWebhook(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, true, "Mensaje recibido correctamente", input, nil)
 }
 
+// Get cases without agent assigned by company_id
+
+func (m *MessageEntry) GetCasesWithoutAgentByCompanyID(c *gin.Context) {
+	companyID := c.Param("company_id")
+
+	companyIDInt, err := strconv.Atoi(companyID)
+
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+
+	repository := repository.MessageRepository{}
+
+	cases, err := repository.GetUnassignedCasesByCompanyID(companyIDInt)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener los casos sin agente asignado", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Casos sin agente asignado obtenidos correctamente!", cases, nil)
+}
+
 func (m *MessageEntry) ReceiveImageMessageWebhookMedia(c *gin.Context) {
 	var input models.IncomingMessage
 
@@ -487,6 +510,39 @@ func (m *MessageEntry) GetCurrentCaseFunnel(c *gin.Context) {
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener el funnel del caso", nil, err)
 		return
+	}
+
+	if funnel.CaseID == 0 {
+
+		currentCase, err := repo.GetCaseByID(uint(caseID))
+
+		if err != nil {
+			utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener el caso", nil, err)
+			return
+		}
+
+		if currentCase == nil {
+			utils.Respond(c, http.StatusNotFound, false, "Caso no encontrado", nil, fmt.Errorf("caso no encontrado"))
+			return
+		}
+
+		// Get funnel
+
+		funnelRepo := repository.FunnelRepository{}
+
+		currentFunnel, err := funnelRepo.GetByID(uint(currentCase.FunnelID))
+
+		if err != nil {
+			utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener el funnel", nil, err)
+			return
+		}
+
+		funnelID := int(currentCase.FunnelID)
+
+		funnel.CaseID = int(currentCase.ID)
+		funnel.FunnelID = &funnelID
+		funnel.FunnelName = &currentFunnel.Name
+
 	}
 
 	utils.Respond(c, http.StatusOK, true, "Funnel del caso obtenido correctamente", funnel, nil)

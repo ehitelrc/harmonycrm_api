@@ -6,6 +6,7 @@ type ChannelWhatsAppTemplate struct {
 	TemplateName       string `gorm:"column:template_name;size:50;not null" json:"template_name"`
 	Language           string `gorm:"column:language;size:10;not null" json:"language"`
 	Active             bool   `gorm:"column:active;default:true;not null" json:"active"`
+	TemplateUrlWebhook string `gorm:"column:template_url_webhook" json:"template_url_webhook"`
 }
 
 // TableName especifica el nombre de la tabla en la BD

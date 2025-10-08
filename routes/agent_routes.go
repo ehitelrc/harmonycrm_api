@@ -15,6 +15,9 @@ func RegisterAgentRoutes(r *gin.RouterGroup) {
 	r.DELETE("/agents/:user_id", ctrl.Delete)
 
 	// Agentes con info de usuario
+	r.GET("/agents/company/:company_id/agents-with-user-info", ctrl.GetAllByCompanyIDWithUserInfo)
+	r.GET("/agents/company/:company_id/department/:department_id/agents-with-user-info", ctrl.GetAllByCompanyIDAndDepartmentIDWithUserInfo)
+
 	r.GET("/agents/agents-with-user-info", ctrl.GetAllWithUserInfo)
 	r.GET("/agents/agents-with-user-info/:user_id", ctrl.GetByUserIDWithUserInfo)
 

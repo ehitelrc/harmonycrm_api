@@ -31,6 +31,18 @@ func (r *AgentRepository) Delete(userID uint) error {
 	return config.DB.Delete(&models.Agent{}, "user_id = ?", userID).Error
 }
 
+func (r *AgentRepository) GetAllByCompanyIDWithUserInfo(companyID uint) ([]models.AgentDepartmentInformation, error) {
+	var rows []models.AgentDepartmentInformation
+	err := config.DB.Where("company_id = ?", companyID).Find(&rows).Error
+	return rows, err
+}
+
+func (r *AgentRepository) GetAllByCompanyIDAndDepartmentIDWithUserInfo(companyID uint, departmentID uint) ([]models.AgentDepartmentInformation, error) {
+	var rows []models.AgentDepartmentInformation
+	err := config.DB.Where("company_id = ? AND department_id = ?", companyID, departmentID).Find(&rows).Error
+	return rows, err
+}
+
 func (r *AgentRepository) GetAllWithUserInfo() ([]models.AgentUser, error) {
 	var rows []models.AgentUser
 	err := config.DB.Find(&rows).Error

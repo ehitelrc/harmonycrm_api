@@ -78,6 +78,44 @@ func (ac *AgentController) Delete(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, true, "Agente eliminado correctamente", nil, nil)
 }
 
+// GET /agents/company/:company_id/agents-with-user-info
+func (ac *AgentController) GetAllByCompanyIDWithUserInfo(c *gin.Context) {
+	companyID, err := strconv.Atoi(c.Param("company_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+
+	rows, err := ac.repo.GetAllByCompanyIDWithUserInfo(uint(companyID))
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener agentes con info de usuario por company_id", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Agentes con info de usuario por company_id obtenidos correctamente", rows, nil)
+}
+
+// GET /agents/company/:company_id/department/:department_id/agents-with-user-info
+func (ac *AgentController) GetAllByCompanyIDAndDepartmentIDWithUserInfo(c *gin.Context) {
+	companyID, err := strconv.Atoi(c.Param("company_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+
+	departmentID, err := strconv.Atoi(c.Param("department_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "department_id inválido", nil, err)
+		return
+	}
+
+	rows, err := ac.repo.GetAllByCompanyIDAndDepartmentIDWithUserInfo(uint(companyID), uint(departmentID))
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener agentes con info de usuario por company_id y department_id", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Agentes con info de usuario por company_id y department_id obtenidos correctamente", rows, nil)
+}
+
 // GET /agents-with-user-info
 func (ac *AgentController) GetAllWithUserInfo(c *gin.Context) {
 	rows, err := ac.repo.GetAllWithUserInfo()

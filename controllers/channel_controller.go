@@ -110,3 +110,35 @@ func (ctrl *ChannelController) GetWhatsappTemplatesByCompanyID(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": templates})
 }
+
+func (ctrl *ChannelController) GetChannelWhatsappIntegrationsByCompanyID(c *gin.Context) {
+	companyIDParam := c.Param("company_id")
+	companyID, err := strconv.Atoi(companyIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID de empresa inválido"})
+		return
+	}
+
+	integrations, err := ctrl.Repo.GetChannelWhatsappIntegrationsByCompanyID(uint(companyID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Error al obtener integraciones de canales", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": integrations})
+}
+
+func (ctrl *ChannelController) GetWhatsappTemplatesByChannelIntegrationID(c *gin.Context) {
+	channelIntegrationIDParam := c.Param("channel_integration_id")
+	channelIntegrationID, err := strconv.Atoi(channelIntegrationIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID de integración de canal inválido"})
+		return
+	}
+
+	templates, err := ctrl.Repo.GetChannelIntegrationByID(uint(channelIntegrationID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Error al obtener plantillas de Whatsapp", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": templates})
+}

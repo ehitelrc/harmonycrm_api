@@ -20,3 +20,5 @@ type Case struct {
 	UpdatedAt      time.Time  `json:"updated_at"`
 	CurrentStageID *uint      `json:"current_stage_id"`
 }
+
+func (Case) TableName() string { return "cases" }
