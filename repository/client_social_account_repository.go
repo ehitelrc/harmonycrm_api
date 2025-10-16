@@ -1,8 +1,11 @@
 package repository
 
 import (
+	"errors"
 	"harmony_api/config"
 	"harmony_api/models"
+
+	"gorm.io/gorm"
 )
 
 type ClientSocialAccountRepository struct{}
@@ -21,6 +24,10 @@ func (r *ClientSocialAccountRepository) GetAll() ([]models.ClientSocialAccount, 
 func (r *ClientSocialAccountRepository) GetByID(id uint) (*models.ClientSocialAccount, error) {
 	var row models.ClientSocialAccount
 	if err := config.DB.First(&row, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// No se encontró el registro, devolvemos nil sin error
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &row, nil
@@ -41,9 +48,20 @@ func (r *ClientSocialAccountRepository) GetByChannel(channelID uint) ([]models.C
 
 func (r *ClientSocialAccountRepository) GetByChannelAndExternal(channelID uint, externalID string) (*models.ClientSocialAccount, error) {
 	var row models.ClientSocialAccount
-	if err := config.DB.Where("channel_id = ? AND external_id = ?", channelID, externalID).First(&row).Error; err != nil {
+
+	if err := config.DB.
+		Where("channel_id = ? AND external_id = ?", channelID, externalID).
+		First(&row).Error; err != nil {
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// No se encontró el registro → no se considera error
+			return nil, nil
+		}
+
+		// Otro tipo de error (por ejemplo, conexión o SQL)
 		return nil, err
 	}
+
 	return &row, nil
 }
 

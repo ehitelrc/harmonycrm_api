@@ -70,3 +70,12 @@ func (r *ChannelRepository) GetChannelIntegrationByID(integration_id uint) ([]mo
 	}
 	return templates, nil
 }
+
+// By app_indentifier
+func (r *ChannelRepository) GetChannelIntegrationByAppIdentifier(app_identifier string) (*models.VWChannelIntegration, error) {
+	var integration models.VWChannelIntegration
+	if err := config.DB.Where("app_identifier = ?", app_identifier).First(&integration).Error; err != nil {
+		return nil, err
+	}
+	return &integration, nil
+}

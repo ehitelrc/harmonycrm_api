@@ -14,7 +14,7 @@ import (
 
 type WSMediaMessage struct{}
 
-func (c *WSMediaMessage) GetMediaData(url string) (string, string, error) {
+func (c *WSMediaMessage) GetMediaData(url string, channel models.VWChannelIntegration) (string, string, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -22,7 +22,7 @@ func (c *WSMediaMessage) GetMediaData(url string) (string, string, error) {
 	}
 	req.Header.Add("Content-Type", "application/json")
 
-	auth, err := c.GetAuth()
+	auth, err := c.GetAuth(*channel.AccessToken)
 	if err != nil {
 		return "", "", err
 	}
@@ -44,7 +44,7 @@ func (c *WSMediaMessage) GetMediaData(url string) (string, string, error) {
 		return "", "", fmt.Errorf("error deserializing JSON: %w", err)
 	}
 
-	data, err := c.GetMediaDataFromURL(responseData.URL)
+	data, err := c.GetMediaDataFromURL(responseData.URL, channel)
 	if err != nil {
 		return "", "", err
 	}
@@ -52,13 +52,13 @@ func (c *WSMediaMessage) GetMediaData(url string) (string, string, error) {
 	return responseData.URL, data, nil
 }
 
-func (c *WSMediaMessage) GetMediaDataFromURL(url string) (string, error) {
+func (c *WSMediaMessage) GetMediaDataFromURL(url string, channel models.VWChannelIntegration) (string, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
 	}
-	auth, err := c.GetAuth()
+	auth, err := c.GetAuth(*channel.AccessToken)
 	if err != nil {
 		return "", err
 	}
@@ -81,9 +81,9 @@ func (c *WSMediaMessage) GetMediaDataFromURL(url string) (string, error) {
 	return encoded, nil
 }
 
-func (c *WSMediaMessage) GetAuth() (*string, error) {
+func (c *WSMediaMessage) GetAuth(accessToken string) (*string, error) {
 
-	value := "Bearer " + "EAAXIokZBEA48BPdCvqw2Qv0e8cZAOMPQZBu4zv3lZAPN2b9gVYJZAkpu8YJH3446C8H2ssgzV9cKReGNHUyL2e30VkzsFpXk94t834GziZBgnzHTzd5dGvREyIZCvZAin9MVRKNSVZB4wP2Kcw2SUF3ITDm5NxsfqZAT7xgZAdliHO0MzpSFSKqoWeMSdJfR1WBmxNec3gUud4GUHtVtBkIAWnxQ4vsJPyiQmxee20ZAIzEp"
+	value := "Bearer " + accessToken
 	return &value, nil
 }
 

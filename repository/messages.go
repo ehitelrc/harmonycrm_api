@@ -85,10 +85,11 @@ func (r *MessageRepository) CreateMessage(message models.IncomingMessage) (*mode
 	if tx.RowsAffected == 0 {
 		// Crear nuevo caso
 		newCase := models.Case{
-			SenderId:  message.SenderID,
-			ChannelID: channnel.ChannelID,
-			CompanyID: channnel.CompanyID,
-			Status:    "open",
+			SenderId:             message.SenderID,
+			ChannelID:            channnel.ChannelID,
+			CompanyID:            channnel.CompanyID,
+			ChannelIntegrationID: channnel.IntegrationID,
+			Status:               "open",
 		}
 		if hasClient {
 			newCase.ClientID = clientID
@@ -336,6 +337,7 @@ func (r *MessageRepository) AssignCaseToDepartment(caseID int, departmentID int,
 
 func (r *MessageRepository) AssignCaseToAgent(caseID int, agentID int, changedBy int) error {
 	return config.DB.Transaction(func(tx *gorm.DB) error {
+
 		// 1) Actualizar el caso con el nuevo agent_id
 		if err := tx.Model(&models.Case{}).
 			Where("id = ?", caseID).

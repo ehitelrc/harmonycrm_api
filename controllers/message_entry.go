@@ -106,11 +106,21 @@ func (m *MessageEntry) ReceiveImageMessageWebhookMedia(c *gin.Context) {
 		return
 	}
 
+	// Get channel integration
+	channelRepository := repository.ChannelRepository{}
+
+	channnel, err := channelRepository.GetChannelIntegrationByAppIdentifier(input.RecipientID)
+
+	if err != nil || channnel == nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener la integración del canal", nil, err)
+		return
+	}
+
 	wm_utils := utils.WSMediaMessage{}
 
 	mediaUrl := fmt.Sprintf("https://graph.facebook.com/v23.0/%s", input.MediaID)
 
-	_, resourceData, error := wm_utils.GetMediaData(mediaUrl)
+	_, resourceData, error := wm_utils.GetMediaData(mediaUrl, *channnel)
 
 	if error != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener los datos del medio", nil, error)
@@ -159,11 +169,21 @@ func (m *MessageEntry) ReceiveAudioMessageWebhookMedia(c *gin.Context) {
 		return
 	}
 
+	// Get channel integration
+	channelRepository := repository.ChannelRepository{}
+
+	channnel, err := channelRepository.GetChannelIntegrationByAppIdentifier(input.RecipientID)
+
+	if err != nil || channnel == nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener la integración del canal", nil, err)
+		return
+	}
+
 	wm_utils := utils.WSMediaMessage{}
 
 	mediaUrl := fmt.Sprintf("https://graph.facebook.com/v23.0/%s", input.MediaID)
 
-	_, resourceData, error := wm_utils.GetMediaData(mediaUrl)
+	_, resourceData, error := wm_utils.GetMediaData(mediaUrl, *channnel)
 
 	if error != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener los datos del medio", nil, error)
@@ -287,11 +307,50 @@ func (m *MessageEntry) AssignCaseToClient(c *gin.Context) {
 		return
 	}
 
-	repository := repository.MessageRepository{}
+	msgRepository := repository.MessageRepository{}
 
-	if err := repository.AssignCaseToClient(input); err != nil {
+	if err := msgRepository.AssignCaseToClient(input); err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al asignar el caso", nil, err)
 		return
+	}
+
+	// Get case
+	caseData, err := msgRepository.GetCaseByID(input.CaseID)
+
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener el caso", nil, err)
+		return
+	}
+
+	channelId, _ := strconv.ParseUint(caseData.ChannelID, 10, 64)
+
+	// Client social account
+	clientSocialAccountRepo := repository.ClientSocialAccountRepository{}
+
+	clientSocialAccount, err := clientSocialAccountRepo.GetByChannelAndExternal(uint(channelId), caseData.SenderId)
+
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener la cuenta social del cliente", nil, err)
+		return
+	}
+
+	// If not exists then create
+	if clientSocialAccount == nil {
+
+		newClientSocialAccount := models.ClientSocialAccount{
+			ClientID:   input.ClientID,
+			ChannelID:  uint(channelId),
+			ExternalID: caseData.SenderId,
+			CreatedAt:  time.Now(),
+			UpdatedAt:  time.Now(),
+		}
+
+		err := clientSocialAccountRepo.Create(&newClientSocialAccount)
+
+		if err != nil {
+			utils.Respond(c, http.StatusInternalServerError, false, "Error al crear la cuenta social del cliente", nil, err)
+			return
+		}
 	}
 
 	utils.Respond(c, http.StatusOK, true, "Caso asignado correctamente", input, nil)
@@ -508,7 +567,7 @@ func (m *MessageEntry) GetCurrentCaseFunnel(c *gin.Context) {
 
 	funnel, err := repo.GetCurrentCaseFunnel(caseID)
 	if err != nil {
-		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener el funnel del caso", nil, err)
+		utils.Respond(c, http.StatusOK, false, "Error al obtener el funnel del caso", nil, err)
 		return
 	}
 
@@ -517,12 +576,12 @@ func (m *MessageEntry) GetCurrentCaseFunnel(c *gin.Context) {
 		currentCase, err := repo.GetCaseByID(uint(caseID))
 
 		if err != nil {
-			utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener el caso", nil, err)
+			utils.Respond(c, http.StatusOK, false, "Error al obtener el caso", nil, err)
 			return
 		}
 
 		if currentCase == nil {
-			utils.Respond(c, http.StatusNotFound, false, "Caso no encontrado", nil, fmt.Errorf("caso no encontrado"))
+			utils.Respond(c, http.StatusOK, false, "Caso no encontrado", nil, fmt.Errorf("caso no encontrado"))
 			return
 		}
 
@@ -533,7 +592,7 @@ func (m *MessageEntry) GetCurrentCaseFunnel(c *gin.Context) {
 		currentFunnel, err := funnelRepo.GetByID(uint(currentCase.FunnelID))
 
 		if err != nil {
-			utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener el funnel", nil, err)
+			utils.Respond(c, http.StatusOK, false, "Error al obtener el funnel", nil, err)
 			return
 		}
 

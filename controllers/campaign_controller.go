@@ -43,7 +43,7 @@ func (cc *CampaignController) GetByID(c *gin.Context) {
 	}
 	row, err := cc.repo.GetByID(uint(id))
 	if err != nil {
-		utils.Respond(c, http.StatusNotFound, false, "Campaña no encontrada", nil, err)
+		utils.Respond(c, http.StatusOK, false, "Campaña no encontrada", nil, err)
 		return
 	}
 	utils.Respond(c, http.StatusOK, true, "Campaña encontrada", row, nil)
