@@ -71,6 +71,15 @@ func (r *ChannelRepository) GetChannelIntegrationByID(integration_id uint) ([]mo
 	return templates, nil
 }
 
+// By company_id and channel_id
+func (r *ChannelRepository) GetChannelIntegrationsByCompanyAndChannelID(company_id uint, channel_id uint) ([]models.ChannelIntegration, error) {
+	var integrations []models.ChannelIntegration
+	if err := config.DB.Where("company_id = ? and channel_id = ?", company_id, channel_id).Find(&integrations).Error; err != nil {
+		return nil, err
+	}
+	return integrations, nil
+}
+
 // By app_indentifier
 func (r *ChannelRepository) GetChannelIntegrationByAppIdentifier(app_identifier string) (*models.VWChannelIntegration, error) {
 	var integration models.VWChannelIntegration
@@ -78,4 +87,12 @@ func (r *ChannelRepository) GetChannelIntegrationByAppIdentifier(app_identifier 
 		return nil, err
 	}
 	return &integration, nil
+}
+
+func (r *ChannelRepository) AddIntegrationToChannel(integration *models.ChannelIntegration) error {
+	return config.DB.Create(integration).Error
+}
+
+func (r *ChannelRepository) UpdateChannelIntegration(integration *models.ChannelIntegration) error {
+	return config.DB.Save(integration).Error
 }

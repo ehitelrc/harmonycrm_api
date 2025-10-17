@@ -23,6 +23,15 @@ func RegisterChannelRoutes(r *gin.RouterGroup) {
 
 	r.GET("/channels/integrations/whatsapp/company/:company_id", controller.GetChannelWhatsappIntegrationsByCompanyID)
 
+	// Add integration to channel
+	r.POST("/channels/integrations", controller.AddIntegrationToChannel)
+
+	//Update channel integration
+	r.PUT("/channels/integrations", controller.UpdateChannelIntegration)
+
+	// Integrations by company and channel_id
+	r.GET("/channels/integrations/company/:company_id/channel/:channel_id", controller.GetChannelIntegrationsByCompanyAndChannelID)
+
 	// Get templates by channel_integration_id
 	r.GET("/channels/whatsapp/templates/integration/:channel_integration_id", controller.GetWhatsappTemplatesByChannelIntegrationID)
 

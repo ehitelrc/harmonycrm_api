@@ -127,6 +127,57 @@ func (ctrl *ChannelController) GetChannelWhatsappIntegrationsByCompanyID(c *gin.
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": integrations})
 }
 
+func (ctrl *ChannelController) AddIntegrationToChannel(c *gin.Context) {
+	var integration models.ChannelIntegration
+	if err := c.ShouldBindJSON(&integration); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Datos inválidos", "error": err.Error()})
+		return
+	}
+
+	if err := ctrl.Repo.AddIntegrationToChannel(&integration); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Error al agregar integración al canal", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"success": true, "data": integration})
+}
+
+func (ctrl *ChannelController) giUpdateChannelIntegration(c *gin.Context) {
+	var integration models.ChannelIntegration
+	if err := c.ShouldBindJSON(&integration); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Datos inválidos", "error": err.Error()})
+		return
+	}
+
+	if err := ctrl.Repo.UpdateChannelIntegration(&integration); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Error al actualizar integración del canal", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": integration})
+}
+
+func (ctrl *ChannelController) GetChannelIntegrationsByCompanyAndChannelID(c *gin.Context) {
+	companyIDParam := c.Param("company_id")
+	companyID, err := strconv.Atoi(companyIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID de empresa inválido"})
+		return
+	}
+
+	channelIDParam := c.Param("channel_id")
+	channelID, err := strconv.Atoi(channelIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID de canal inválido"})
+		return
+	}
+
+	integrations, err := ctrl.Repo.GetChannelIntegrationsByCompanyAndChannelID(uint(companyID), uint(channelID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Error al obtener integraciones de canales", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": integrations})
+}
+
 func (ctrl *ChannelController) GetWhatsappTemplatesByChannelIntegrationID(c *gin.Context) {
 	channelIntegrationIDParam := c.Param("channel_integration_id")
 	channelIntegrationID, err := strconv.Atoi(channelIntegrationIDParam)
