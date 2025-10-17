@@ -141,7 +141,7 @@ func (ctrl *ChannelController) AddIntegrationToChannel(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"success": true, "data": integration})
 }
 
-func (ctrl *ChannelController) giUpdateChannelIntegration(c *gin.Context) {
+func (ctrl *ChannelController) UpdateChannelIntegration(c *gin.Context) {
 	var integration models.ChannelIntegration
 	if err := c.ShouldBindJSON(&integration); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Datos inválidos", "error": err.Error()})
