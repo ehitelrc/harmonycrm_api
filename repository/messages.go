@@ -73,7 +73,7 @@ func (r *MessageRepository) CreateMessage(message models.IncomingMessage) (*mode
 	// Buscar si ya existe un caso
 	var cases models.Case
 	tx := config.DB.
-		Where("channel_id = ? AND sender_id = ?", channnel.ChannelID, message.SenderID).
+		Where("channel_id = ? AND sender_id = ? and status = ?", channnel.ChannelID, message.SenderID, "open").
 		First(&cases)
 
 	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
@@ -335,12 +335,13 @@ func (r *MessageRepository) AssignCaseToDepartment(caseID int, departmentID int,
 	})
 }
 
-func (r *MessageRepository) AssignCaseToAgent(caseID int, agentID int, changedBy int) error {
+func (r *MessageRepository) AssignCaseToAgent(caseID int, agentID int, changedBy int, departmentID int) error {
 	return config.DB.Transaction(func(tx *gorm.DB) error {
 
 		// 1) Actualizar el caso con el nuevo agent_id
 		if err := tx.Model(&models.Case{}).
 			Where("id = ?", caseID).
+			Update("department_id", departmentID).
 			Update("agent_id", agentID).Error; err != nil {
 			return fmt.Errorf("error al asignar el caso %d al agente %d: %w", caseID, agentID, err)
 		}
@@ -396,21 +397,24 @@ func (r *MessageRepository) CloseCase(request models.CaseCloseRequest) error {
 			Updates(map[string]interface{}{
 				"closed_at": gorm.Expr("NOW()"),
 				"status":    "closed",
-				"funnel_id": request.FunnelID,
 			}).Error; err != nil {
 			return fmt.Errorf("error al cerrar el caso %d: %w", request.CaseID, err)
 		}
 
 		// 2) Insertar log en case_funnel (acción 'close')
+		var funnelID *int = nil
+		if request.FunnelID != nil && *request.FunnelID > 0 {
+			funnelID = request.FunnelID
+		}
+
 		entry := models.CaseFunnel{
 			CaseID:      request.CaseID,
-			FunnelID:    request.FunnelID,
+			FunnelID:    funnelID, // 👈 ya es *int
 			FromStageID: nil,
 			ToStageID:   nil,
 			Note:        &request.Note,
 			ChangedBy:   request.ClosedBy,
 			Action:      "close",
-			// ChangedAt: lo pone la DB (DEFAULT now())
 		}
 		if err := tx.Create(&entry).Error; err != nil {
 			return fmt.Errorf("no se pudo crear el log case_funnel (close): %w", err)

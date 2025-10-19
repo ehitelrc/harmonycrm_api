@@ -545,7 +545,7 @@ func (m *MessageEntry) AssignCaseToAgent(c *gin.Context) {
 	}
 
 	repo := repository.MessageRepository{}
-	if err := repo.AssignCaseToAgent(req.CaseID, req.AgentID, req.ChangedBy); err != nil {
+	if err := repo.AssignCaseToAgent(req.CaseID, req.AgentID, req.ChangedBy, req.DepartmentID); err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al asignar el caso al agente", nil, err)
 		return
 	}
@@ -619,7 +619,7 @@ func (m *MessageEntry) SetCaseFunnelStage(c *gin.Context) {
 	caseFunnelStage := models.CaseFunnel{
 
 		CaseID:      req.CaseID,
-		FunnelID:    req.FunnelID,
+		FunnelID:    &req.FunnelID,
 		FromStageID: req.FromStageID,
 		ToStageID:   &req.ToStageID,
 		Note:        req.Note,

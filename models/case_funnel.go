@@ -6,7 +6,7 @@ import "time"
 type CaseFunnel struct {
 	ID          uint      `json:"id"            gorm:"primaryKey;autoIncrement"`
 	CaseID      int       `json:"case_id"       gorm:"not null;index"`
-	FunnelID    int       `json:"funnel_id"     gorm:"not null;index"`
+	FunnelID    *int      `json:"funnel_id"     gorm:"not null;index"`
 	FromStageID *int      `json:"from_stage_id" gorm:"index"`     // nullable
 	ToStageID   *int      `json:"to_stage_id"   gorm:"index"`     // nullable (IMPORTANTE)
 	Note        *string   `json:"note"          gorm:"type:text"` // nullable

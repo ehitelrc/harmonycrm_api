@@ -80,6 +80,8 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 
 	RegisterCaseDashboardRoutes(api)
 
+	RegisterWebSocketTestRoutes(api, hub)
+
 	// Endpoint de verificación de estado
 	api.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{

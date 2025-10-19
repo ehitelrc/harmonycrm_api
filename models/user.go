@@ -12,6 +12,7 @@ type User struct {
 	IsActive        bool      `json:"is_active"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
+	IsSuperUser     bool      `json:"is_super_user"`
 }
 
 func (User) TableName() string { return "users" }

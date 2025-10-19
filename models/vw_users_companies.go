@@ -10,6 +10,7 @@ type VWUsersCompanies struct {
 	CompanyID   int     `gorm:"column:company_id" json:"company_id"`
 	CompanyName string  `gorm:"column:company_name" json:"company_name"`
 	Token       string  `gorm:"column:token" json:"token"`
+	IsSuperUser *bool   `gorm:"column:is_super_user" json:"is_super_user,omitempty"`
 }
 
 func (VWUsersCompanies) TableName() string {

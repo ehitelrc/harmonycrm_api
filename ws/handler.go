@@ -43,6 +43,8 @@ func ServeWS(h *Hub) gin.HandlerFunc {
 			Send:    make(chan []byte, 256),
 		}
 
+		println(channel)
+
 		h.register <- client
 
 		// Writer goroutine
