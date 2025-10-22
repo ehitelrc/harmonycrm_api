@@ -45,5 +45,5 @@ docker run -d --name harmony_service \
 
 // Por nombre
 
-  docker rm -f harmony_service
-  docker rmi -f ehitelrc/harmony_service:latest
+docker rm -f harmony_service
+docker rmi -f ehitelrc/harmony_service:latest

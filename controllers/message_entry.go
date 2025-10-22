@@ -692,6 +692,46 @@ func (m *MessageEntry) GetCaseGeneralInformation(c *gin.Context) {
 
 }
 
+func (m *MessageEntry) GetCaseGeneralInformationByCompanyCampaignAgent(c *gin.Context) {
+	companyIDStr := c.Param("company_id")
+	companyID, err := strconv.Atoi(companyIDStr)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+
+	campaignIDStr := c.Param("campaign_id")
+	campaignID, err := strconv.Atoi(campaignIDStr)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "campaign_id inválido", nil, err)
+		return
+	}
+
+	agentIDStr := c.Param("agent_id")
+	agentID, err := strconv.Atoi(agentIDStr)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "agent_id inválido", nil, err)
+		return
+	}
+
+	channelIntegrationIDStr := c.Param("channel_integration_id")
+	channelIntegrationID, err := strconv.Atoi(channelIntegrationIDStr)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "channel_integration_id inválido", nil, err)
+		return
+	}
+
+	repo := repository.MessageRepository{}
+	cases, err := repo.GetCaseGeneralInformationByCompanyCampaignAgent(uint(companyID), uint(campaignID), uint(agentID), uint(channelIntegrationID))
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener la información general de los casos", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Información general de los casos obtenida correctamente", cases, nil)
+
+}
+
 // Helper para manejar punteros string nulos
 func strOrEmpty(s *string) string {
 	if s != nil {

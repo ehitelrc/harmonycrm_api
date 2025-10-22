@@ -15,6 +15,7 @@ type VWChannel struct {
 	IsActive           bool      `json:"is_active" gorm:"column:is_active"`
 	CreatedAt          time.Time `json:"created_at" gorm:"column:created_at"`
 	UpdatedAt          time.Time `json:"updated_at" gorm:"column:updated_at"`
+	IsNonCommercial    bool      `gorm:"default:false" json:"is_non_commercial" gorm:"column:is_non_commercial"`
 }
 
 // TableName sets the table name for VWChannel to the view name

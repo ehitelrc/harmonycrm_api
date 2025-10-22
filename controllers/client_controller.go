@@ -84,3 +84,18 @@ func (cc *ClientController) Delete(c *gin.Context) {
 	}
 	utils.Respond(c, http.StatusOK, true, "Cliente eliminado correctamente", nil, nil)
 }
+
+// POST /clients/leads
+func (cc *ClientController) CreateLead(c *gin.Context) {
+	var body models.LeadRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
+		return
+	}
+	if err := cc.repo.CreateLead(&body); err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al crear lead", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusCreated, true, "Lead creado correctamente", body, nil)
+
+}

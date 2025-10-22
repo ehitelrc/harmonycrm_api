@@ -1,8 +1,12 @@
 package repository
 
 import (
+	"fmt"
 	"harmony_api/config"
 	"harmony_api/models"
+	"strconv"
+
+	"gorm.io/gorm"
 )
 
 type ClientRepository struct{}
@@ -34,4 +38,90 @@ func (r *ClientRepository) Update(m *models.Client) error {
 
 func (r *ClientRepository) Delete(id uint) error {
 	return config.DB.Delete(&models.Client{}, id).Error
+}
+
+// CreateLead crea un nuevo lead en la tabla vw_case_general_information
+// CreateLead crea un nuevo lead y su caso asociado
+func (r *ClientRepository) CreateLead(lead *models.LeadRequest) error {
+	tx := config.DB.Begin()
+
+	// 🔹 1. Verificar cliente
+	var client models.Client
+	if err := tx.First(&client, lead.ClientID).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("cliente no encontrado: %w", err)
+	}
+
+	// 🔹 2. Verificar integración de canal
+	var channelIntegration models.ChannelIntegration
+	if err := tx.First(&channelIntegration, lead.ChannelIntegrationID).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("integración de canal no encontrada: %w", err)
+	}
+
+	// 🔹 3. Verificar si ya existe un caso abierto
+	var existingCase models.Case
+	err := tx.
+		Where("channel_id = ? AND client_id = ? AND status = ? AND campaign_id = ? AND agent_id = ?",
+			lead.ChannelID, client.ID, "open", lead.CampaignID, lead.AgentID).
+		First(&existingCase).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		tx.Rollback()
+		return err
+	}
+
+	// Si ya existe un caso abierto, no crear otro
+	if err == nil {
+		tx.Rollback()
+		return nil
+	}
+
+	// 🔹 4. Crear nuevo caso
+	newCase := models.Case{
+		ClientID:             &lead.ClientID,
+		CompanyID:            lead.CompanyID,
+		CampaignID:           lead.CampaignID,
+		ChannelID:            strconv.Itoa(int(lead.ChannelID)),
+		ChannelIntegrationID: lead.ChannelIntegrationID,
+		AgentID:              lead.AgentID,
+		IsNonCommercial:      channelIntegration.IsNonCommercial,
+		Status:               "open",
+		SenderId:             client.Phone,
+	}
+
+	if err := tx.Create(&newCase).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("no se pudo crear el caso: %w", err)
+	}
+
+	// 🔹 5. Insertar artículos (si existen)
+	for _, item := range lead.Items {
+		caseItem := models.CaseItem{
+			CaseID:   int(newCase.ID),
+			ItemID:   int(item.ItemID),
+			Quantity: float64(item.Quantity),
+			Price:    item.ItemPrice,
+			Notes:    &item.Notes,
+		}
+		if err := tx.Create(&caseItem).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf("no se pudo crear el artículo del caso: %w", err)
+		}
+	}
+
+	// 🔹 6. Registrar mensaje inicial
+	newMessage := models.Message{
+		CaseID:      newCase.ID,
+		SenderType:  "agent",
+		MessageType: "text",
+		TextContent: "No hay conversación iniciada con el cliente.",
+	}
+
+	if err := tx.Create(&newMessage).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("no se pudo crear el mensaje inicial: %w", err)
+	}
+
+	return tx.Commit().Error
 }

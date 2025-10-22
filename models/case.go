@@ -20,6 +20,7 @@ type Case struct {
 	UpdatedAt            time.Time  `json:"updated_at"`
 	CurrentStageID       *uint      `json:"current_stage_id"`
 	ChannelIntegrationID uint       `json:"channel_integration_id"`
+	IsNonCommercial      bool       `gorm:"default:false" json:"is_non_commercial"`
 }
 
 func (Case) TableName() string { return "cases" }

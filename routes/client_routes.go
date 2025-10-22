@@ -14,4 +14,7 @@ func RegisterClientRoutes(r *gin.RouterGroup) {
 	r.POST("/clients", ctrl.Create)
 	r.PUT("/clients", ctrl.Update) // objeto completo con id
 	r.DELETE("/clients/:id", ctrl.Delete)
+
+	// Create a new lead
+	r.POST("/clients/leads", ctrl.CreateLead)
 }

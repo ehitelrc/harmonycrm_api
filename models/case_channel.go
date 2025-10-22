@@ -33,6 +33,7 @@ type CaseWithChannel struct {
 
 	LastMessagePreview *string `json:"last_message_preview" gorm:"column:last_message_preview"`
 	LastMessageIsMedia *bool   `json:"last_message_is_media" gorm:"column:last_message_is_media"`
+	IsNonCommercial    *bool   `json:"is_non_commercial,omitempty" gorm:"column:is_non_commercial"`
 }
 
 func (CaseWithChannel) TableName() string {

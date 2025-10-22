@@ -16,8 +16,11 @@ type ChannelIntegration struct {
 	UpdatedAt     time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
 	// Relaciones opcionales (útiles para consultas extendidas o joins)
-	Company *Company `json:"company,omitempty" gorm:"foreignKey:CompanyID;references:ID"`
-	Channel *Channel `json:"channel,omitempty" gorm:"foreignKey:ChannelID;references:ID"`
+	Company         *Company `json:"company,omitempty" gorm:"foreignKey:CompanyID;references:ID"`
+	Channel         *Channel `json:"channel,omitempty" gorm:"foreignKey:ChannelID;references:ID"`
+	IsNonCommercial bool     `gorm:"default:false" json:"is_non_commercial"`
+
+	IntegrationName string `json:"integration_name,omitempty"` // Campo calculado, no se mapea a la base de datos
 }
 
 // Nombre explícito de la tabla (si tu esquema no usa pluralización)

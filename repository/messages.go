@@ -89,6 +89,7 @@ func (r *MessageRepository) CreateMessage(message models.IncomingMessage) (*mode
 			ChannelID:            channnel.ChannelID,
 			CompanyID:            channnel.CompanyID,
 			ChannelIntegrationID: channnel.IntegrationID,
+			IsNonCommercial:      channnel.IsNonCommercial,
 			Status:               "open",
 		}
 		if hasClient {
@@ -429,6 +430,44 @@ func (r *MessageRepository) GetCaseGeneralInformation(companyID, campaignID, sta
 	var cases []models.VWCaseGeneralInformation
 	err := config.DB.
 		Where("company_id = ? AND campaign_id = ? AND current_stage_id = ?", companyID, campaignID, stageID).
+		Find(&cases).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// aseguramos que aunque no haya resultados, devuelva slice vacío y no nil
+	if cases == nil {
+		cases = []models.VWCaseGeneralInformation{}
+	}
+
+	return cases, nil
+}
+
+// GetCaseGeneralInformationByCompanyCampaignAgent
+func (r *MessageRepository) GetCaseGeneralInformationByCompanyCampaignAgent(companyID, campaignID, agentID uint, channelIntegrationID uint) ([]models.VWCaseGeneralInformation, error) {
+	var cases []models.VWCaseGeneralInformation
+	err := config.DB.
+		Where("company_id = ? AND campaign_id = ? AND agent_id = ? AND channel_integration_id = ?", companyID, campaignID, agentID, channelIntegrationID).
+		Find(&cases).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// aseguramos que aunque no haya resultados, devuelva slice vacío y no nil
+	if cases == nil {
+		cases = []models.VWCaseGeneralInformation{}
+	}
+
+	return cases, nil
+}
+
+// vw_case_general_information by company_id, campaign_id and agent_id
+func (r *MessageRepository) GetCaseGeneralInformationByAgent(companyID, campaignID, agentID uint) ([]models.VWCaseGeneralInformation, error) {
+	var cases []models.VWCaseGeneralInformation
+	err := config.DB.
+		Where("company_id = ? AND campaign_id = ? AND agent_id = ?", companyID, campaignID, agentID).
 		Find(&cases).Error
 
 	if err != nil {
