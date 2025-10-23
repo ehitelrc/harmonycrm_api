@@ -17,4 +17,6 @@ func RegisterClientRoutes(r *gin.RouterGroup) {
 
 	// Create a new lead
 	r.POST("/clients/leads", ctrl.CreateLead)
+
+	r.GET("/clients/custom_fields/:entity_id", ctrl.GetCustomFields)
 }

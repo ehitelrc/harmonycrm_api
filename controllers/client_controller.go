@@ -11,11 +11,15 @@ import (
 )
 
 type ClientController struct {
-	repo *repository.ClientRepository
+	repo   *repository.ClientRepository
+	cfrepo *repository.CustomFieldRepository
 }
 
 func NewClientController() *ClientController {
-	return &ClientController{repo: repository.NewClientRepository()}
+	return &ClientController{
+		repo:   repository.NewClientRepository(),
+		cfrepo: repository.NewCustomFieldRepository(),
+	}
 }
 
 // GET /clients
@@ -98,4 +102,25 @@ func (cc *ClientController) CreateLead(c *gin.Context) {
 	}
 	utils.Respond(c, http.StatusCreated, true, "Lead creado correctamente", body, nil)
 
+}
+
+func (cc *ClientController) GetCustomFields(c *gin.Context) {
+	entityIDStr := c.Query("entity_id")
+	var entityID *uint
+	if entityIDStr != "" {
+		id, err := strconv.Atoi(entityIDStr)
+		if err != nil {
+			utils.Respond(c, http.StatusBadRequest, false, "entity_id inválido", nil, err)
+			return
+		}
+		idUint := uint(id)
+		entityID = &idUint
+	}
+
+	fields, err := cc.cfrepo.GetFields("clients", entityID)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener campos personalizados", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Campos personalizados obtenidos correctamente", fields, nil)
 }
