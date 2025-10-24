@@ -21,6 +21,7 @@ type Case struct {
 	CurrentStageID       *uint      `json:"current_stage_id"`
 	ChannelIntegrationID uint       `json:"channel_integration_id"`
 	IsNonCommercial      bool       `gorm:"default:false" json:"is_non_commercial"`
+	ManualStartingLead   bool       `gorm:"default:false" json:"manual_starting_lead"`
 }
 
 func (Case) TableName() string { return "cases" }

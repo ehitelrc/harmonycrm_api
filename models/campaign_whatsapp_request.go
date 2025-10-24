@@ -11,9 +11,10 @@ type CampaignWhatsappPushRequest struct {
 
 // CampaignWhatsappPushLeadInput representa un detalle del payload
 type CampaignWhatsappPushLeadInput struct {
-	PhoneNumber string  `json:"phone_number" binding:"required"`
-	ClientID    *int64  `json:"client_id,omitempty"`
-	CaseID      *int64  `json:"case_id,omitempty"`
-	FullName    *string `json:"full_name,omitempty"`
-	MessageSent bool    `json:"message_sent"`
+	PhoneNumber        string  `json:"phone_number" binding:"required"`
+	ClientID           *int64  `json:"client_id,omitempty"`
+	CaseID             *int64  `json:"case_id,omitempty"`
+	FullName           *string `json:"full_name,omitempty"`
+	MessageSent        bool    `json:"message_sent"`
+	ManualStartingLead bool    `json:"manual_starting_lead"`
 }

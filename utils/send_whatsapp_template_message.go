@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"harmony_api/models"
+	"harmony_api/ws"
 	"net/http"
+	"strconv"
 	"sync"
 )
 
@@ -75,7 +78,7 @@ func SendTemplateMessage(apiBaseURL, phoneNumberID, accessToken, templateName, l
 }
 
 // SendTemplateToMany envía un template a múltiples números en paralelo
-func SendTemplateToMany(apiBaseURL, phoneNumberID, accessToken, templateName, languageCode string, numbers []string) {
+func SendTemplateToManyx(apiBaseURL, phoneNumberID, accessToken, templateName, languageCode string, numbers []string) {
 	var wg sync.WaitGroup
 
 	for _, number := range numbers {
@@ -90,4 +93,47 @@ func SendTemplateToMany(apiBaseURL, phoneNumberID, accessToken, templateName, la
 
 	wg.Wait()
 	fmt.Println("✅ Todos los mensajes procesados.")
+}
+
+func SendTemplateToMany(
+	apiBaseURL, phoneNumberID, accessToken, templateName, languageCode string,
+	targets []models.TemplateRecipient,
+	hub *ws.Hub,
+
+) {
+	var wg sync.WaitGroup
+
+	for _, t := range targets {
+		wg.Add(1)
+		go func(target models.TemplateRecipient) {
+			defer wg.Done()
+
+			// 1️⃣ Enviar template al número
+			if err := SendTemplateMessage(apiBaseURL, phoneNumberID, accessToken, templateName, languageCode, target.Number); err != nil {
+				fmt.Printf("❌ Error enviando a %s: %v\n", target.Number, err)
+				return
+			}
+			fmt.Printf("✅ Template enviado a %s\n", target.Number)
+
+			// 2️⃣ Si hay case_id, emitir notificación por WebSocket
+			if target.CaseID != nil && *target.CaseID > 0 && hub != nil {
+				payload, _ := json.Marshal(map[string]interface{}{
+					"type":    "new_message",
+					"case_id": *target.CaseID,
+					"data": map[string]interface{}{
+						"sender_type":  "client",
+						"message_type": "text",
+						"text_content": "Apertura mediante template",
+					},
+				})
+
+				channel := "case:" + strconv.FormatInt(*target.CaseID, 10)
+				hub.BroadcastJSON(channel, payload)
+				fmt.Printf("📢 WS emitido a canal %s\n", channel)
+			}
+		}(t)
+	}
+
+	wg.Wait()
+	fmt.Println("✅ Todos los templates procesados.")
 }

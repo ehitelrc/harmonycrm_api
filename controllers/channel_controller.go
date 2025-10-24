@@ -95,6 +95,35 @@ func (ctrl *ChannelController) CreateWhatsappTemplate(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"success": true, "data": template})
 }
 
+func (ctrl *ChannelController) UpdateWhatsappTemplate(c *gin.Context) {
+	var template models.ChannelWhatsAppTemplate
+	if err := c.ShouldBindJSON(&template); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Datos inválidos", "error": err.Error()})
+		return
+	}
+
+	if err := ctrl.Repo.UpdateWhatsappTemplate(&template); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Error al actualizar plantilla de Whatsapp", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": template})
+}
+
+func (ctrl *ChannelController) DeleteWhatsappTemplate(c *gin.Context) {
+	templateIDParam := c.Param("template_id")
+	templateID, err := strconv.Atoi(templateIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID de plantilla inválido"})
+		return
+	}
+
+	if err := ctrl.Repo.DeleteWhatsappTemplate(uint(templateID)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Error al eliminar plantilla de Whatsapp", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Plantilla de Whatsapp eliminada"})
+}
+
 func (ctrl *ChannelController) GetWhatsappTemplatesByCompanyID(c *gin.Context) {
 	companyIDParam := c.Param("company_id")
 	companyID, err := strconv.Atoi(companyIDParam)

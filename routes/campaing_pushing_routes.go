@@ -2,12 +2,13 @@ package routes
 
 import (
 	"harmony_api/controllers"
+	"harmony_api/ws"
 
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterCampaignPushingRoutes(r *gin.RouterGroup) {
-	ctrl := controllers.NewCampaignPushingController()
+func RegisterCampaignPushingRoutes(r *gin.RouterGroup, hub *ws.Hub) {
+	ctrl := controllers.NewCampaignPushingController(hub)
 
 	// Register campaign pushing
 	r.POST("/campaigns/whatsapp/push/register", ctrl.RegisterWhatsappCampaignPush)

@@ -4,6 +4,7 @@ import (
 	"harmony_api/models"
 	"harmony_api/repository"
 	"harmony_api/utils"
+	"harmony_api/ws"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,11 +12,13 @@ import (
 
 type CampaignPushingController struct {
 	repo *repository.CampaignPushingRepository
+	hub  *ws.Hub
 }
 
-func NewCampaignPushingController() *CampaignPushingController {
+func NewCampaignPushingController(hub *ws.Hub) *CampaignPushingController {
 	return &CampaignPushingController{
 		repo: repository.NewCampaignPushingRepository(),
+		hub:  hub,
 	}
 }
 
@@ -30,7 +33,7 @@ func (ctrl *CampaignPushingController) RegisterWhatsappCampaignPush(c *gin.Conte
 	}
 
 	// Guardar en DB
-	pushID, err := ctrl.repo.CreateWhatsappPush(&requestBody)
+	pushID, err := ctrl.repo.CreateWhatsappPush(&requestBody, ctrl.hub)
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error saving whatsapp campaign push", nil, err)
 		return

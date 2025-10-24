@@ -31,9 +31,12 @@ type CaseWithChannel struct {
 	LastMessageMimeType   *string    `json:"last_message_mime_type" gorm:"column:last_message_mime_type"`
 	LastMessageAt         *time.Time `json:"last_message_at" gorm:"column:last_message_at"`
 
-	LastMessagePreview *string `json:"last_message_preview" gorm:"column:last_message_preview"`
-	LastMessageIsMedia *bool   `json:"last_message_is_media" gorm:"column:last_message_is_media"`
-	IsNonCommercial    *bool   `json:"is_non_commercial,omitempty" gorm:"column:is_non_commercial"`
+	LastMessagePreview   *string `json:"last_message_preview" gorm:"column:last_message_preview"`
+	LastMessageIsMedia   *bool   `json:"last_message_is_media" gorm:"column:last_message_is_media"`
+	IsNonCommercial      *bool   `json:"is_non_commercial,omitempty" gorm:"column:is_non_commercial"`
+	ManualStartingLead   *bool   `json:"manual_starting_lead,omitempty" gorm:"column:manual_starting_lead"`
+	ClientMessages       *int    `json:"client_messages,omitempty" gorm:"column:client_messages"`
+	ChannelIntegrationID uint    `json:"channel_integration_id" gorm:"column:channel_integration_id"`
 }
 
 func (CaseWithChannel) TableName() string {

@@ -71,7 +71,7 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 	RegisterDashboardRoutes(api)
 
 	// Campaign Pushing
-	RegisterCampaignPushingRoutes(api)
+	RegisterCampaignPushingRoutes(api, hub)
 
 	// Locations
 	LocationsRoutes(api)

@@ -88,6 +88,7 @@ func (r *ClientRepository) CreateLead(lead *models.LeadRequest) error {
 		IsNonCommercial:      channelIntegration.IsNonCommercial,
 		Status:               "open",
 		SenderId:             client.Phone,
+		ManualStartingLead:   true,
 	}
 
 	if err := tx.Create(&newCase).Error; err != nil {

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"harmony_api/models"
@@ -9,8 +10,14 @@ import (
 	"harmony_api/utils"
 	"harmony_api/ws"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -276,8 +283,33 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 				utils.Respond(c, http.StatusInternalServerError, false, "Error al enviar el mensaje", nil, err)
 				return
 			}
-		}
+		} else if channelIntegration.ChannelCode == "whatsapp" && input.MessageType == "image" {
 
+			media_id, err := uploadBase64Image(*channelIntegration.AppIdentifier, *channelIntegration.AccessToken, input.Base64Content)
+
+			if err != nil {
+				utils.Respond(c, http.StatusInternalServerError, false, "Error al subir la imagen", nil, err)
+				return
+			}
+
+			//Extract mime type
+			parts := strings.SplitN(input.Base64Content, ";", 2)
+			//remove "data:"
+			mimeType := parts[0]
+			//remove "base64,"
+			mimeType = strings.TrimPrefix(mimeType, "data:")
+			mimeType = strings.TrimPrefix(mimeType, "base64,")
+
+			recipientId := channelIntegration.SenderID
+
+			input.MIMEType = mimeType
+
+			err = m.sendWhatsAppImage(*channelIntegration.AppIdentifier, *channelIntegration.AccessToken, *recipientId, media_id, input.TextMessage)
+			if err != nil {
+				utils.Respond(c, http.StatusInternalServerError, false, "Error al enviar el mensaje", nil, err)
+				return
+			}
+		}
 	}
 
 	repository := repository.MessageRepository{}
@@ -480,6 +512,141 @@ func (m *MessageEntry) DispatchWhatsappTextMessage(channelIntegration *models.VW
 		return fmt.Errorf("error en respuesta webhook: %s", resp.Status)
 	}
 
+	return nil
+}
+
+func uploadBase64Image(phoneNumberID, accessToken, base64DataParam string) (string, error) {
+	// 1️⃣ Limpieza de prefijo
+	parts := strings.SplitN(base64DataParam, ",", 2)
+	base64Data := base64DataParam
+	if len(parts) == 2 {
+		base64Data = parts[1]
+	}
+
+	// 2️⃣ Sanitización
+	re := regexp.MustCompile(`[^A-Za-z0-9+/=]`)
+	base64Data = re.ReplaceAllString(base64Data, "")
+	base64Data = strings.TrimSpace(base64Data)
+
+	// 3️⃣ Detección de tipo MIME
+	mimeType := "image/jpeg"
+	ext := "jpg"
+	if strings.Contains(base64DataParam, "image/png") {
+		mimeType = "image/png"
+		ext = "png"
+	}
+
+	// 4️⃣ Decodificación Base64
+	data, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		return "", fmt.Errorf("❌ error decodificando base64: %w", err)
+	}
+
+	// 5️⃣ Guardar archivo temporal
+	os.MkdirAll("./tmp", 0755)
+	tempPath := fmt.Sprintf("./tmp/debug_image_upload.%s", ext)
+	if err := os.WriteFile(tempPath, data, 0644); err != nil {
+		return "", fmt.Errorf("❌ error guardando temporal: %w", err)
+	}
+	fmt.Println("🧩 Archivo temporal:", tempPath)
+
+	// 6️⃣ Crear multipart con header correcto
+	file, err := os.Open(tempPath)
+	if err != nil {
+		return "", fmt.Errorf("❌ error abriendo archivo temporal: %w", err)
+	}
+	defer file.Close()
+
+	url := fmt.Sprintf("https://graph.facebook.com/v24.0/%s/media", phoneNumberID)
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// ✅ Parte con MIMEHeader explícito (clave del error original)
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, filepath.Base(tempPath)))
+	h.Set("Content-Type", mimeType)
+	part, err := writer.CreatePart(h)
+	if err != nil {
+		return "", fmt.Errorf("❌ error creando part con header: %w", err)
+	}
+	if _, err = io.Copy(part, file); err != nil {
+		return "", fmt.Errorf("❌ error copiando bytes: %w", err)
+	}
+
+	writer.WriteField("messaging_product", "whatsapp")
+	writer.Close()
+
+	// 7️⃣ Enviar request
+	req, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return "", fmt.Errorf("❌ error creando request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("❌ error enviando request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	fmt.Println("📡 Respuesta API:", string(respBody))
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("❌ error API (%d): %s", resp.StatusCode, string(respBody))
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("error parseando JSON: %w", err)
+	}
+
+	id, ok := result["id"].(string)
+	if !ok {
+		return "", fmt.Errorf("no se encontró el campo 'id' en la respuesta: %s", string(respBody))
+	}
+
+	fmt.Println("📦 ID del archivo subido:", id)
+	return id, nil
+}
+
+func (m *MessageEntry) sendWhatsAppImage(phoneNumberID, accessToken, to, mediaID, caption string) error {
+	url := fmt.Sprintf("https://graph.facebook.com/v24.0/%s/messages", phoneNumberID)
+
+	payload := map[string]interface{}{
+		"messaging_product": "whatsapp",
+		"to":                to,
+		"type":              "image",
+		"image": map[string]interface{}{
+			"id":      mediaID,
+			"caption": caption,
+		},
+	}
+
+	body, _ := json.Marshal(payload)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("❌ error creando request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("❌ error enviando request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	fmt.Println("📡 Respuesta de envío:", string(respBody))
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("❌ error API (%d): %s", resp.StatusCode, string(respBody))
+	}
+
+	fmt.Println("✅ Mensaje enviado correctamente.")
 	return nil
 }
 

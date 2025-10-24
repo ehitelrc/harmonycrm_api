@@ -55,6 +55,14 @@ func (r *ChannelRepository) GetWhatsappTemplatesByCompanyID(companyId uint) ([]m
 	return templates, nil
 }
 
+func (r *ChannelRepository) UpdateWhatsappTemplate(template *models.ChannelWhatsAppTemplate) error {
+	return config.DB.Save(template).Error
+}
+
+func (r *ChannelRepository) DeleteWhatsappTemplate(template_id uint) error {
+	return config.DB.Delete(&models.ChannelWhatsAppTemplate{}, template_id).Error
+}
+
 func (r *ChannelRepository) GetChannelWhatsappIntegrationsByCompanyID(companyId uint) ([]models.VWChannelIntegration, error) {
 	var integrations []models.VWChannelIntegration
 	if err := config.DB.Where("company_id = ? and channel_code = ?", companyId, "whatsapp").Find(&integrations).Error; err != nil {
