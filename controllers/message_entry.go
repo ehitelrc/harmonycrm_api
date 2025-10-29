@@ -826,6 +826,25 @@ func (m *MessageEntry) CloseCase(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, true, "Caso cerrado correctamente", nil, nil)
 }
 
+//api.POST("/entry/cancel_case/:case_id", controller.CancelCase)
+
+func (m *MessageEntry) CancelCase(c *gin.Context) {
+	caseIDStr := c.Param("case_id")
+	caseID, err := strconv.Atoi(caseIDStr)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "case_id inválido", nil, err)
+		return
+	}
+
+	repo := repository.MessageRepository{}
+	if err := repo.CancelCase(uint(caseID)); err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al cancelar el caso", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Caso cancelado correctamente", nil, nil)
+}
+
 func (m *MessageEntry) GetCaseGeneralInformation(c *gin.Context) {
 	companyIDStr := c.Param("company_id")
 	companyID, err := strconv.Atoi(companyIDStr)

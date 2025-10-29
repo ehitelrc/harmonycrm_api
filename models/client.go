@@ -18,6 +18,8 @@ type Client struct {
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	IsCitizen bool `json:"is_citizen"`
 }
 
 func (Client) TableName() string { return "clients" }

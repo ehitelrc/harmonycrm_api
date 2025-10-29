@@ -427,6 +427,19 @@ func (r *MessageRepository) CloseCase(request models.CaseCloseRequest) error {
 	})
 }
 
+func (r *MessageRepository) CancelCase(caseID uint) error {
+	return config.DB.Transaction(func(tx *gorm.DB) error {
+		// 1) Actualizar el caso a estado 'cancelled'
+		if err := tx.Model(&models.Case{}).
+			Where("id = ?", caseID).
+			Update("status", "cancelled").Error; err != nil {
+			return fmt.Errorf("error al cancelar el caso %d: %w", caseID, err)
+		}
+
+		return nil
+	})
+}
+
 // GetCaseGeneralInformation
 func (r *MessageRepository) GetCaseGeneralInformation(companyID, campaignID, stageID uint) ([]models.VWCaseGeneralInformation, error) {
 	var cases []models.VWCaseGeneralInformation
