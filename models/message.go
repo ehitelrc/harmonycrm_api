@@ -12,6 +12,7 @@ type Message struct {
 	MIMEType      string    `gorm:"type:text" json:"mime_type,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 	Base64Content string    `gorm:"type:text" json:"base64_content,omitempty"`
+	AgentID       *uint     `json:"agent_id,omitempty"`
 }
 
 func (m *Message) TableName() string {

@@ -77,6 +77,13 @@ func (r *ClientRepository) CreateLead(lead *models.LeadRequest) error {
 		return nil
 	}
 
+	// Get campaign to obtain funnel ID
+	var campaign models.Campaign
+	if err := tx.First(&campaign, lead.CampaignID).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("campaña no encontrada: %w", err)
+	}
+
 	// 🔹 4. Crear nuevo caso
 	newCase := models.Case{
 		ClientID:             &lead.ClientID,
@@ -88,6 +95,7 @@ func (r *ClientRepository) CreateLead(lead *models.LeadRequest) error {
 		IsNonCommercial:      channelIntegration.IsNonCommercial,
 		Status:               "open",
 		SenderId:             client.Phone,
+		FunnelID:             *campaign.FunnelID,
 		ManualStartingLead:   true,
 	}
 

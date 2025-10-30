@@ -860,15 +860,8 @@ func (m *MessageEntry) GetCaseGeneralInformation(c *gin.Context) {
 		return
 	}
 
-	stageIDStr := c.Param("stage_id")
-	stageID, err := strconv.Atoi(stageIDStr)
-	if err != nil {
-		utils.Respond(c, http.StatusBadRequest, false, "stage_id inválido", nil, err)
-		return
-	}
-
 	repo := repository.MessageRepository{}
-	cases, err := repo.GetCaseGeneralInformation(uint(companyID), uint(campaignID), uint(stageID))
+	cases, err := repo.GetCaseGeneralInformation(uint(companyID), uint(campaignID))
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener la información general de los casos", nil, err)
 		return

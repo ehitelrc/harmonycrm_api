@@ -236,6 +236,20 @@ func (r *MessageRepository) SendMessageToPlatform(message models.AgentMessage) e
 
 	// transform AgentMessage to Message
 
+	// Agent case
+
+	caseData := models.Case{}
+
+	err := config.DB.Where("id = ?", message.CaseID).First(&caseData).Error
+
+	if err != nil {
+		return fmt.Errorf("error al obtener el caso: %w", err)
+	}
+
+	agentID := caseData.AgentID
+
+	println("Agente -->", agentID)
+
 	newMessage := models.Message{
 		CaseID:        message.CaseID,
 		SenderType:    message.SenderType,
@@ -243,9 +257,10 @@ func (r *MessageRepository) SendMessageToPlatform(message models.AgentMessage) e
 		TextContent:   message.TextMessage,
 		Base64Content: message.Base64Content,
 		MIMEType:      message.MIMEType,
+		AgentID:       &agentID,
 	}
 
-	err := config.DB.Create(&newMessage).Error
+	err = config.DB.Create(&newMessage).Error
 	if err != nil {
 		return fmt.Errorf("error al enviar el mensaje: %w", err)
 	}
@@ -302,7 +317,10 @@ func (r *MessageRepository) AssignCaseToCampaign(caseID int, campaignID int, cha
 		// 2) Actualizar campaign_id del caso
 		if err := tx.Model(&models.Case{}).
 			Where("id = ?", caseID).
-			Update("campaign_id", campaignID).Error; err != nil {
+			Updates(map[string]interface{}{
+				"campaign_id": campaignID,
+				"funnel_id":   *campaign.FunnelID,
+			}).Error; err != nil {
 			return fmt.Errorf("error al asignar el caso %d a la campaña %d: %w", caseID, campaignID, err)
 		}
 
@@ -441,10 +459,10 @@ func (r *MessageRepository) CancelCase(caseID uint) error {
 }
 
 // GetCaseGeneralInformation
-func (r *MessageRepository) GetCaseGeneralInformation(companyID, campaignID, stageID uint) ([]models.VWCaseGeneralInformation, error) {
+func (r *MessageRepository) GetCaseGeneralInformation(companyID, campaignID uint) ([]models.VWCaseGeneralInformation, error) {
 	var cases []models.VWCaseGeneralInformation
 	err := config.DB.
-		Where("company_id = ? AND campaign_id = ? AND current_stage_id = ?", companyID, campaignID, stageID).
+		Where("company_id = ? AND campaign_id = ?", companyID, campaignID).
 		Find(&cases).Error
 
 	if err != nil {
