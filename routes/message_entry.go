@@ -67,4 +67,7 @@ func InitializeMessage(r gin.RouterGroup, hub *ws.Hub) {
 	// Get unassigned cases by company_id
 	api.GET("/entry/unassigned_cases/:company_id", controller.GetCasesWithoutAgentByCompanyID)
 
+	// By company and department unassigned cases
+	api.GET("/entry/unassigned_cases/company/:company_id/department/:department_id", controller.GetCasesWithoutAgentByCompanyAndDepartmentID)
+
 }

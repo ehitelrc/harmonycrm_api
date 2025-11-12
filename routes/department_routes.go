@@ -10,6 +10,8 @@ func RegisterDepartmentRoutes(r *gin.RouterGroup) {
 	controller := controllers.NewDepartmentController()
 
 	r.GET("/departments/company/:company_id", controller.GetByCompany)
+	// By company and user_id
+	r.GET("/departments/company/:company_id/user/:user_id", controller.GetByCompanyAndUser)
 	r.GET("/departments/:id", controller.GetByID)
 	r.POST("/departments", controller.Create)
 	r.PUT("/departments", controller.Update)

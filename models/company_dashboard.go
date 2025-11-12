@@ -21,6 +21,7 @@ type CompanyDashboard struct {
 	CasesByChannel    JSONCaseChannels `json:"cases_by_channel" gorm:"column:cases_by_channel;type:jsonb"`
 	CasesByAgent      JSONCaseAgents   `json:"cases_by_agent" gorm:"column:cases_by_agent;type:jsonb"`
 	OldestOpenCases   JSONOldestOpen   `json:"oldest_open_cases" gorm:"column:oldest_open_cases;type:jsonb"`
+	DepartmentID      int64            `json:"department_id" gorm:"column:department_id;"`
 }
 
 // TableName especifica el nombre de la vista en PostgreSQL.

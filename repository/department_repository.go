@@ -23,6 +23,15 @@ func (r *DepartmentRepository) GetByCompanyID(companyID uint) ([]models.Departme
 	return departments, err
 }
 
+func (r *DepartmentRepository) GetByCompanyAndUserID(companyID uint, userID uint) ([]models.Department, error) {
+	var departments []models.Department
+	err := config.DB.
+		Joins("JOIN agent_department_assignments ada ON ada.department_id = departments.id").
+		Where("departments.company_id = ? AND ada.agent_id = ?", companyID, userID).
+		Find(&departments).Error
+	return departments, err
+}
+
 func (r *DepartmentRepository) GetByID(id uint) (*models.Department, error) {
 	var dept models.Department
 	err := config.DB.First(&dept, id).Error

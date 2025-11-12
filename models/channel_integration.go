@@ -21,6 +21,8 @@ type ChannelIntegration struct {
 	IsNonCommercial bool     `gorm:"default:false" json:"is_non_commercial"`
 
 	IntegrationName string `json:"integration_name,omitempty"` // Campo calculado, no se mapea a la base de datos
+
+	DepartmentID *uint `json:"department_id,omitempty" gorm:"index"` // Índice para búsquedas rápidas por departamento
 }
 
 // Nombre explícito de la tabla (si tu esquema no usa pluralización)

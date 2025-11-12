@@ -44,6 +44,27 @@ func (c *DepartmentController) GetByCompany(ctx *gin.Context) {
 
 	utils.Respond(ctx, http.StatusOK, true, "Departamentos encontrados", departments, nil)
 }
+func (c *DepartmentController) GetByCompanyAndUser(ctx *gin.Context) {
+	companyID, err := strconv.Atoi(ctx.Param("company_id"))
+	if err != nil {
+		utils.Respond(ctx, http.StatusBadRequest, false, "Parámetro company_id inválido", nil, err)
+		return
+	}
+
+	userID, err := strconv.Atoi(ctx.Param("user_id"))
+	if err != nil {
+		utils.Respond(ctx, http.StatusBadRequest, false, "Parámetro user_id inválido", nil, err)
+		return
+	}
+
+	departments, err := c.repo.GetByCompanyAndUserID(uint(companyID), uint(userID))
+	if err != nil {
+		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener departamentos", nil, err)
+		return
+	}
+
+	utils.Respond(ctx, http.StatusOK, true, "Departamentos encontrados", departments, nil)
+}
 
 func (c *DepartmentController) GetByID(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))

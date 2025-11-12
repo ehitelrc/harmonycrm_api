@@ -16,6 +16,10 @@ func (r *CaseDashboardRepository) refreshMaterializedView() error {
 	return config.DB.Exec("REFRESH MATERIALIZED VIEW vw_case_dashboard_by_company").Error
 }
 
+func (r *CaseDashboardRepository) refreshMaterializedWithDepartmentView() error {
+	return config.DB.Exec("REFRESH MATERIALIZED VIEW vw_case_dashboard_by_company_with_department").Error
+}
+
 // GetDashboardByCompany devuelve el dashboard de una compañía específica
 func (r *CaseDashboardRepository) GetDashboardByCompany(companyID int64) (*models.CompanyDashboard, error) {
 
@@ -30,6 +34,49 @@ func (r *CaseDashboardRepository) GetDashboardByCompany(companyID int64) (*model
 		First(&dashboard).Error; err != nil {
 		return nil, err
 	}
+	return &dashboard, nil
+}
+
+// By company and department
+func (r *CaseDashboardRepository) GetDashboardByCompanyAndDepartment(companyID int64, departmentID int64) (*models.CompanyDashboard, error) {
+	if err := r.refreshMaterializedWithDepartmentView(); err != nil {
+		return nil, err
+	}
+
+	var dashboard models.CompanyDashboard
+	if err := config.DB.Debug().
+		Table("public.vw_case_dashboard_by_company_with_department").
+		Where("company_id = ? AND department_id = ?", companyID, departmentID).
+		First(&dashboard).Error; err != nil {
+		return nil, err
+	}
+	return &dashboard, nil
+}
+
+// By company and user
+
+func (r *CaseDashboardRepository) GetDashboardByCompanyAndUser(companyID int64, userID int64) (*models.CompanyDashboard, error) {
+	if err := r.refreshMaterializedView(); err != nil {
+		return nil, err
+	}
+
+	var dashboard models.CompanyDashboard
+	if err := config.DB.Table("vw_case_dashboard_by_company").
+		Where("company_id = ? AND user_id = ?", companyID, userID).
+		First(&dashboard).Error; err != nil {
+		return nil, err
+	}
+
+	var agentDepartments models.AgentDepartmentAssignment
+
+	if err := config.DB.Table("agent_department_assignments").
+		Where("agent_id = ?", userID).
+		First(&agentDepartments).Error; err != nil {
+		return nil, err
+	}
+
+	// Filtrar los datos del dashboard según los departamentos asignados al agente
+
 	return &dashboard, nil
 }
 

@@ -90,6 +90,7 @@ func (r *MessageRepository) CreateMessage(message models.IncomingMessage) (*mode
 			CompanyID:            channnel.CompanyID,
 			ChannelIntegrationID: channnel.IntegrationID,
 			IsNonCommercial:      channnel.IsNonCommercial,
+			DepartmentID:         *channnel.DepartmentID,
 			Status:               "open",
 		}
 		if hasClient {
@@ -217,6 +218,15 @@ func (r *MessageRepository) GetCaseByID(id uint) (*models.Case, error) {
 func (r *MessageRepository) GetUnassignedCasesByCompanyID(companyID int) ([]models.CaseWithChannel, error) {
 	var unassignedCases []models.CaseWithChannel
 	err := config.DB.Where("company_id = ? AND agent_id IS NULL AND status = ?", companyID, "open").Find(&unassignedCases).Error
+	return unassignedCases, err
+}
+
+// Cases without agents assigned by company and department
+func (r *MessageRepository) GetUnassignedCasesByCompanyAndDepartmentID(companyID int, departmentID int) ([]models.CaseWithChannel, error) {
+	var unassignedCases []models.CaseWithChannel
+
+	err := config.DB.Where("company_id = ? AND department_id = ? AND agent_id IS NULL AND status = ?", companyID, departmentID, "open").Find(&unassignedCases).Error
+
 	return unassignedCases, err
 }
 

@@ -14,7 +14,7 @@ import (
 
 type WSMediaMessage struct{}
 
-func (c *WSMediaMessage) GetMediaData(url string, channel models.VWChannelIntegration) (string, string, error) {
+func (c *WSMediaMessage) GetMediaData(url string, channel models.ViewChannelIntegration) (string, string, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -22,7 +22,7 @@ func (c *WSMediaMessage) GetMediaData(url string, channel models.VWChannelIntegr
 	}
 	req.Header.Add("Content-Type", "application/json")
 
-	auth, err := c.GetAuth(*channel.AccessToken)
+	auth, err := c.GetAuth(channel.AccessToken)
 	if err != nil {
 		return "", "", err
 	}
@@ -52,13 +52,13 @@ func (c *WSMediaMessage) GetMediaData(url string, channel models.VWChannelIntegr
 	return responseData.URL, data, nil
 }
 
-func (c *WSMediaMessage) GetMediaDataFromURL(url string, channel models.VWChannelIntegration) (string, error) {
+func (c *WSMediaMessage) GetMediaDataFromURL(url string, channel models.ViewChannelIntegration) (string, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
 	}
-	auth, err := c.GetAuth(*channel.AccessToken)
+	auth, err := c.GetAuth(channel.AccessToken)
 	if err != nil {
 		return "", err
 	}

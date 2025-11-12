@@ -98,6 +98,32 @@ func (m *MessageEntry) GetCasesWithoutAgentByCompanyID(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, true, "Casos sin agente asignado obtenidos correctamente!", cases, nil)
 }
 
+// By company and department unassigned cases
+//api.GET("/entry/unassigned_cases/company/:company_id/department/:department_id", controller.GetCasesWithoutAgentByCompanyAndDepartmentID)
+
+func (m *MessageEntry) GetCasesWithoutAgentByCompanyAndDepartmentID(c *gin.Context) {
+	companyID := c.Param("company_id")
+	departmentID := c.Param("department_id")
+	companyIDInt, err := strconv.Atoi(companyID)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+	departmentIDInt, err := strconv.Atoi(departmentID)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "department_id inválido", nil, err)
+		return
+	}
+
+	repository := repository.MessageRepository{}
+	cases, err := repository.GetUnassignedCasesByCompanyAndDepartmentID(companyIDInt, departmentIDInt)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener los casos sin agente asignado", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Casos sin agente asignado obtenidos correctamente!", cases, nil)
+}
+
 func (m *MessageEntry) ReceiveImageMessageWebhookMedia(c *gin.Context) {
 	var input models.IncomingMessage
 

@@ -63,8 +63,8 @@ func (r *ChannelRepository) DeleteWhatsappTemplate(template_id uint) error {
 	return config.DB.Delete(&models.ChannelWhatsAppTemplate{}, template_id).Error
 }
 
-func (r *ChannelRepository) GetChannelWhatsappIntegrationsByCompanyID(companyId uint) ([]models.VWChannelIntegration, error) {
-	var integrations []models.VWChannelIntegration
+func (r *ChannelRepository) GetChannelWhatsappIntegrationsByCompanyID(companyId uint) ([]models.ViewChannelIntegration, error) {
+	var integrations []models.ViewChannelIntegration
 	if err := config.DB.Where("company_id = ? and channel_code = ?", companyId, "whatsapp").Find(&integrations).Error; err != nil {
 		return nil, err
 	}
@@ -80,8 +80,8 @@ func (r *ChannelRepository) GetChannelIntegrationByID(integration_id uint) ([]mo
 }
 
 // By company_id and channel_id
-func (r *ChannelRepository) GetChannelIntegrationsByCompanyAndChannelID(company_id uint, channel_id uint) ([]models.ChannelIntegration, error) {
-	var integrations []models.ChannelIntegration
+func (r *ChannelRepository) GetChannelIntegrationsByCompanyAndChannelID(company_id uint, channel_id uint) ([]models.ViewChannelIntegration, error) {
+	var integrations []models.ViewChannelIntegration
 	if err := config.DB.Where("company_id = ? and channel_id = ?", company_id, channel_id).Find(&integrations).Error; err != nil {
 		return nil, err
 	}
@@ -89,8 +89,8 @@ func (r *ChannelRepository) GetChannelIntegrationsByCompanyAndChannelID(company_
 }
 
 // By app_indentifier
-func (r *ChannelRepository) GetChannelIntegrationByAppIdentifier(app_identifier string) (*models.VWChannelIntegration, error) {
-	var integration models.VWChannelIntegration
+func (r *ChannelRepository) GetChannelIntegrationByAppIdentifier(app_identifier string) (*models.ViewChannelIntegration, error) {
+	var integration models.ViewChannelIntegration
 	if err := config.DB.Where("app_identifier = ?", app_identifier).First(&integration).Error; err != nil {
 		return nil, err
 	}
