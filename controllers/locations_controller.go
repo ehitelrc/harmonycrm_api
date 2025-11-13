@@ -90,14 +90,9 @@ func (c *LocationsController) DeleteCountry(ctx *gin.Context) {
 	utils.Respond(ctx, http.StatusOK, true, "País eliminado exitosamente", nil, nil)
 }
 
-func (c *LocationsController) GetProvincesByCountryID(ctx *gin.Context) {
-	countryID, err := strconv.Atoi(ctx.Param("country_id"))
-	if err != nil {
-		utils.Respond(ctx, http.StatusBadRequest, false, "ID de país inválido", nil, err)
-		return
-	}
-
-	provinces, err := c.repo.GetProvincesByCountryID(uint(countryID))
+func (c *LocationsController) GetProvincesByCountryISO(ctx *gin.Context) {
+	countryISO := ctx.Param("country_iso")
+	provinces, err := c.repo.GetProvincesByCountryISO(countryISO)
 	if err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener provincias", nil, err)
 		return
@@ -114,6 +109,19 @@ func (c *LocationsController) GetCantonsByProvinceID(ctx *gin.Context) {
 	}
 
 	cantons, err := c.repo.GetCantonsByProvinceID(uint(provinceID))
+	if err != nil {
+		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener cantones", nil, err)
+		return
+	}
+
+	utils.Respond(ctx, http.StatusOK, true, "Lista de cantones", cantons, nil)
+}
+
+func (c *LocationsController) GetCantonsByCountryProvince(ctx *gin.Context) {
+	countryISO := ctx.Param("country_iso")
+	provinceCode := ctx.Param("province_code")
+
+	cantons, err := c.repo.GetCantonsByCountryProvince(countryISO, provinceCode)
 	if err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener cantones", nil, err)
 		return
@@ -242,6 +250,19 @@ func (c *LocationsController) GetDistrictsByCantonID(ctx *gin.Context) {
 	}
 
 	districts, err := c.repo.GetDistrictsByCantonID(uint(cantonID))
+	if err != nil {
+		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener distritos", nil, err)
+		return
+	}
+
+	utils.Respond(ctx, http.StatusOK, true, "Lista de distritos", districts, nil)
+}
+
+func (c *LocationsController) GetDistrictsByCountryProvinceCanton(ctx *gin.Context) {
+	countryISO := ctx.Param("country_iso")
+	cantonCode := ctx.Param("canton_code")
+
+	districts, err := c.repo.GetDistrictsByCountryProvinceCanton(countryISO, cantonCode)
 	if err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener distritos", nil, err)
 		return

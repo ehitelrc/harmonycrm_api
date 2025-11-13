@@ -49,9 +49,9 @@ func (r *LocationRepositories) DeleteCountry(id uint) error {
 	return nil
 }
 
-func (r *LocationRepositories) GetProvincesByCountryID(countryID uint) ([]models.Province, error) {
+func (r *LocationRepositories) GetProvincesByCountryISO(countryISO string) ([]models.Province, error) {
 	var provinces []models.Province
-	if err := config.DB.Where("country_id = ?", countryID).Find(&provinces).Error; err != nil {
+	if err := config.DB.Debug().Where("country_code = ?", countryISO).Find(&provinces).Error; err != nil {
 		return nil, err
 	}
 	return provinces, nil
@@ -84,6 +84,14 @@ func (r *LocationRepositories) DeleteProvince(id uint) error {
 func (r *LocationRepositories) GetCantonsByProvinceID(provinceID uint) ([]models.Canton, error) {
 	var cantons []models.Canton
 	if err := config.DB.Where("province_id = ?", provinceID).Find(&cantons).Error; err != nil {
+		return nil, err
+	}
+	return cantons, nil
+}
+
+func (r *LocationRepositories) GetCantonsByCountryProvince(countryISO, provinceCode string) ([]models.Canton, error) {
+	var cantons []models.Canton
+	if err := config.DB.Where("country_code = ? AND province_code = ?", countryISO, provinceCode).Find(&cantons).Error; err != nil {
 		return nil, err
 	}
 	return cantons, nil
@@ -125,6 +133,14 @@ func (r *LocationRepositories) DeleteCanton(id uint) error {
 func (r *LocationRepositories) GetDistrictsByCantonID(cantonID uint) ([]models.District, error) {
 	var districts []models.District
 	if err := config.DB.Where("canton_id = ?", cantonID).Find(&districts).Error; err != nil {
+		return nil, err
+	}
+	return districts, nil
+}
+
+func (r *LocationRepositories) GetDistrictsByCountryProvinceCanton(countryISO, cantonCode string) ([]models.District, error) {
+	var districts []models.District
+	if err := config.DB.Where("country_code = ? AND canton_code = ?", countryISO, cantonCode).Find(&districts).Error; err != nil {
 		return nil, err
 	}
 	return districts, nil

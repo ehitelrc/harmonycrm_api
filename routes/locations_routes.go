@@ -20,7 +20,7 @@ func LocationsRoutes(r *gin.RouterGroup) {
 
 	// Provinces routes
 
-	locations.GET("/provinces/country/:country_id", ctrl.GetProvincesByCountryID)
+	locations.GET("/provinces/country/code/:country_iso", ctrl.GetProvincesByCountryISO)
 	locations.GET("/provinces/:province_id", ctrl.GetCantonsByProvinceID)
 	locations.POST("/provinces", ctrl.CreateProvince)
 	locations.PUT("/provinces/", ctrl.UpdateProvince)
@@ -28,6 +28,8 @@ func LocationsRoutes(r *gin.RouterGroup) {
 
 	// Cantons routes
 	locations.GET("/cantons/province/:province_id", ctrl.GetCantonsByProvinceID)
+	//country province
+	locations.GET("/cantons/country/:country_iso/province/:province_code", ctrl.GetCantonsByCountryProvince)
 	locations.GET("/cantons/:canton_id", ctrl.GetDistrictsByCantonID)
 	locations.POST("/cantons", ctrl.CreateCanton)
 	locations.PUT("/cantons/", ctrl.UpdateCanton)
@@ -35,6 +37,9 @@ func LocationsRoutes(r *gin.RouterGroup) {
 
 	// Districts routes
 	locations.GET("/districts/canton/:canton_id", ctrl.GetDistrictsByCantonID)
+	//By Country Province Canton
+	locations.GET("/districts/country/:country_iso/canton/:canton_code", ctrl.GetDistrictsByCountryProvinceCanton)
+
 	locations.GET("/district/:district_id", ctrl.GetDistrictByID)
 	locations.POST("/districts", ctrl.CreateDistrict)
 	locations.PUT("/districts/", ctrl.UpdateDistrict)
