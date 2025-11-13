@@ -84,6 +84,8 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 
 	RegisterCustomListRoutes(api)
 
+	RegristerCustomFieldRoutes(api)
+
 	// Endpoint de verificación de estado
 	api.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{

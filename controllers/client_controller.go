@@ -105,19 +105,15 @@ func (cc *ClientController) CreateLead(c *gin.Context) {
 }
 
 func (cc *ClientController) GetCustomFields(c *gin.Context) {
-	entityIDStr := c.Query("entity_id")
-	var entityID *uint
-	if entityIDStr != "" {
-		id, err := strconv.Atoi(entityIDStr)
-		if err != nil {
-			utils.Respond(c, http.StatusBadRequest, false, "entity_id inválido", nil, err)
-			return
-		}
-		idUint := uint(id)
-		entityID = &idUint
+
+	entityIDParam := c.Param("entity_id")
+	entityID, err := strconv.Atoi(entityIDParam)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "ID de entidad inválido", nil, err)
+		return
 	}
 
-	fields, err := cc.cfrepo.GetFields("clients", entityID)
+	fields, err := cc.cfrepo.GetFields("clients", uint(entityID))
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener campos personalizados", nil, err)
 		return

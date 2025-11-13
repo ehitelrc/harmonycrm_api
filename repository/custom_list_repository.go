@@ -40,9 +40,15 @@ func (r *CustomListRepository) GetSelectedValue(entity string, entityID uint, li
 	return &rel.ListValue, nil
 }
 
+func (r *CustomListRepository) GetAllLists() ([]models.CustomListDefinition, error) {
+	var defs []models.CustomListDefinition
+	err := r.DB.Find(&defs).Error
+	return defs, err
+}
+
 func (r *CustomListRepository) SaveSelection(entity string, entityID uint, valueID uint, listID uint) error {
 	// eliminar selecciones previas para ese entity+lista
-	err := r.DB.Where("list_value = ?", valueID).
+	err := r.DB.Where("entity_id = ? AND list_id = ?", entityID, listID).
 		Delete(&models.CustomListEntityValue{}).Error
 	if err != nil {
 		return err
@@ -57,4 +63,28 @@ func (r *CustomListRepository) SaveSelection(entity string, entityID uint, value
 	}
 
 	return r.DB.Create(&newSel).Error
+}
+
+func (r *CustomListRepository) CreateListValue(value *models.CustomListValue) error {
+	return r.DB.Create(value).Error
+}
+
+func (r *CustomListRepository) UpdateListValue(value *models.CustomListValue) error {
+	return r.DB.Save(value).Error
+}
+
+func (r *CustomListRepository) DeleteListValue(id uint) error {
+	return r.DB.Delete(&models.CustomListValue{}, id).Error
+}
+
+func (r *CustomListRepository) ListHasData(id uint) (bool, error) {
+	var count int64
+	err := r.DB.Model(&models.CustomListEntityValue{}).
+		Where("list_id = ?", id).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }

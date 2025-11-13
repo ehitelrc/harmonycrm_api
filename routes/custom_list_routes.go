@@ -19,7 +19,19 @@ func RegisterCustomListRoutes(r *gin.RouterGroup) {
 	// Ejemplo: /api/custom-lists/clients/25
 	group.GET("/:entity/:entity_id", controller.GetLists)
 
+	// Get lists
+	group.GET("/list", controller.GetAllLists)
+
 	// Guardar selección de una lista para una entidad
 	group.POST("/select", controller.SaveSelection)
+
+	// Create list value
+	group.POST("/value", controller.CreateListValue)
+
+	// Update list value
+	group.PUT("/value", controller.UpdateListValue)
+
+	// Delete list value
+	group.DELETE("/value/:id", controller.DeleteListValue)
 
 }
