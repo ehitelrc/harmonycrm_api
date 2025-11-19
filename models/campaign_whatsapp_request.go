@@ -2,11 +2,13 @@ package models
 
 // CampaignWhatsappPushRequest representa el payload maestro-detalle
 type CampaignWhatsappPushRequest struct {
-	CampaignID  int64                           `json:"campaign_id" binding:"required"`
-	Description string                          `json:"description" binding:"required"`
-	TemplateID  int64                           `json:"template_id" binding:"required"`
-	ChangedBy   int                             `json:"changed_by" binding:"required"`
-	Leads       []CampaignWhatsappPushLeadInput `json:"leads" binding:"required"`
+	CampaignID           int64                           `json:"campaign_id" binding:"required"`
+	Description          string                          `json:"description" binding:"required"`
+	TemplateID           int64                           `json:"template_id" binding:"required"`
+	ChangedBy            int                             `json:"changed_by" binding:"required"`
+	Leads                []CampaignWhatsappPushLeadInput `json:"leads" binding:"required"`
+	DepartmentID         *int64                          `json:"department_id,omitempty"`
+	ChannelIntegrationID *int64                          `json:"channel_integration_id,omitempty"`
 }
 
 // CampaignWhatsappPushLeadInput representa un detalle del payload

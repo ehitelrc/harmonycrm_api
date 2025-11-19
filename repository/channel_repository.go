@@ -71,6 +71,16 @@ func (r *ChannelRepository) GetChannelWhatsappIntegrationsByCompanyID(companyId 
 	return integrations, nil
 }
 
+func (r *ChannelRepository) GetChannelWhatsappIntegrationsByDepartmentID(departmentId uint) ([]models.ViewChannelIntegration, error) {
+	var integrations []models.ViewChannelIntegration
+	if err := config.DB.Where("department_id = ? and channel_code = ?", departmentId, "whatsapp").Find(&integrations).Error; err != nil {
+		return nil, err
+	}
+	return integrations, nil
+}
+
+// By channel_integration_id
+
 func (r *ChannelRepository) GetChannelIntegrationByID(integration_id uint) ([]models.ChannelWhatsAppTemplate, error) {
 	var templates []models.ChannelWhatsAppTemplate
 	if err := config.DB.Where("channel_integration = ?", integration_id).Find(&templates).Error; err != nil {

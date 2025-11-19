@@ -54,7 +54,7 @@ type CaseAgentStat struct {
 type OldestOpenCase struct {
 	CaseID     int64     `json:"case_id"`
 	ClientName *string   `json:"client_name"`
-	StartedAt  *SafeTime `json:"started_at"` // ← reemplaza *time.Time por *SafeTime
+	CreatedAt  *SafeTime `json:"created_at"` // ← reemplaza *time.Time por *SafeTime
 }
 
 //

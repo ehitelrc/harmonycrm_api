@@ -24,6 +24,7 @@ type ViewChannelIntegration struct {
 
 	DepartmentID   *uint   `json:"department_id,omitempty" gorm:"index"` // Índice para búsquedas rápidas por departamento
 	DepartmentName *string `json:"department_name,omitempty"`            // Nombre del departamento, campo calculado
+	ChannelCode    *string `json:"channel_code,omitempty"`               // Código del canal, campo calculado
 }
 
 // Nombre explícito de la tabla (si tu esquema no usa pluralización)

@@ -93,8 +93,20 @@ func (r *MessageRepository) CreateMessage(message models.IncomingMessage) (*mode
 			DepartmentID:         *channnel.DepartmentID,
 			Status:               "open",
 		}
+
 		if hasClient {
 			newCase.ClientID = clientID
+
+			// Has channel agent assigned?
+			var channelAgentClient models.ChannelAgentClient
+
+			err := config.DB.Debug().Where("department_id = ? AND client_id = ?", channnel.DepartmentID, *clientID).First(&channelAgentClient).Error
+
+			if err == nil {
+				fmt.Println("🔔 Asignando agente del canal al caso:", channelAgentClient.AgentID)
+				agentID := int(channelAgentClient.AgentID)
+				newCase.AgentID = uint(agentID)
+			}
 		}
 
 		// Si viene de QR, asignar company_id y campaign_id
@@ -375,6 +387,34 @@ func (r *MessageRepository) AssignCaseToAgent(caseID int, agentID int, changedBy
 			Update("department_id", departmentID).
 			Update("agent_id", agentID).Error; err != nil {
 			return fmt.Errorf("error al asignar el caso %d al agente %d: %w", caseID, agentID, err)
+		}
+
+		// Load case data
+		var caseData models.Case
+		if err := tx.Where("id = ?", caseID).First(&caseData).Error; err != nil {
+			return fmt.Errorf("error al obtener el caso %d: %w", caseID, err)
+		}
+
+		// 2) Eliminar asignaciones previas en channel_agent_clients para este canal y cliente
+
+		tx.Where("channel_id = ? AND client_id = ?", caseData.ChannelID, caseData.ClientID).Delete(&models.ChannelAgentClient{})
+
+		// Insertar nuevo registro
+
+		channelIDInt, err := strconv.ParseInt(caseData.ChannelID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("channel_id inválido, no se pudo convertir a int64: %v", err)
+		}
+
+		channelAgentClient := models.ChannelAgentClient{
+			ChannelID:    channelIDInt,
+			AgentID:      int64(agentID),
+			DepartmentID: int64(departmentID),
+			ClientID:     int64(*caseData.ClientID),
+		}
+
+		if err := tx.Create(&channelAgentClient).Error; err != nil {
+			return fmt.Errorf("error al crear el nuevo registro en channel_agent_clients: %w", err)
 		}
 
 		return nil
