@@ -89,7 +89,7 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 	// Endpoint de verificación de estado
 	api.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
-			"status": "API is online",
+			"status": "API is online V 2.0.4",
 		})
 	})
 

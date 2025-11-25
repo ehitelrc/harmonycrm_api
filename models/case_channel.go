@@ -37,6 +37,7 @@ type CaseWithChannel struct {
 	ManualStartingLead   *bool   `json:"manual_starting_lead,omitempty" gorm:"column:manual_starting_lead"`
 	ClientMessages       *int    `json:"client_messages,omitempty" gorm:"column:client_messages"`
 	ChannelIntegrationID uint    `json:"channel_integration_id" gorm:"column:channel_integration_id"`
+	IntegrationName      string  `json:"integration_name" gorm:"column:integration_name"`
 }
 
 func (CaseWithChannel) TableName() string {

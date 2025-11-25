@@ -1,0 +1,18 @@
+version: '3.9'
+
+services:
+ 
+  # Web
+  harmony_service:
+    image: ehitelrc/harmony_service:latest
+    container_name: harmony_service
+    ports:
+      - '8098:8098'
+    restart: unless-stopped
+
+  harmony_service_messages_in:
+    image: ehitelrc/harmony_service:latest
+    container_name: harmony_service_messages_in
+    ports:
+      - '8099:8098'
+    restart: unless-stopped

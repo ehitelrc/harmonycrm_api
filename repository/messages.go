@@ -52,7 +52,7 @@ func (r *MessageRepository) CreateMessage(message models.IncomingMessage) (*mode
 	if err := config.DB.
 		Where("app_identifier = ?", message.RecipientID).
 		First(&channnel).Error; err != nil {
-		defer config.CloseDB()
+
 		return nil, fmt.Errorf("canal no encontrado: %w", err)
 	}
 
@@ -381,42 +381,52 @@ func (r *MessageRepository) AssignCaseToDepartment(caseID int, departmentID int,
 func (r *MessageRepository) AssignCaseToAgent(caseID int, agentID int, changedBy int, departmentID int) error {
 	return config.DB.Transaction(func(tx *gorm.DB) error {
 
-		// 1) Actualizar el caso con el nuevo agent_id
+		// 1) Actualizar SIEMPRE el caso (agente y departamento)
 		if err := tx.Model(&models.Case{}).
 			Where("id = ?", caseID).
-			Update("department_id", departmentID).
-			Update("agent_id", agentID).Error; err != nil {
+			Updates(map[string]interface{}{
+				"department_id": departmentID,
+				"agent_id":      agentID,
+			}).Error; err != nil {
 			return fmt.Errorf("error al asignar el caso %d al agente %d: %w", caseID, agentID, err)
 		}
 
-		// Load case data
+		// 2) Cargar datos actualizados del caso
 		var caseData models.Case
 		if err := tx.Where("id = ?", caseID).First(&caseData).Error; err != nil {
 			return fmt.Errorf("error al obtener el caso %d: %w", caseID, err)
 		}
 
-		// 2) Eliminar asignaciones previas en channel_agent_clients para este canal y cliente
+		// 3) Solo si hay cliente asociado, sincronizar channel_agent_clients
+		if caseData.ClientID != nil {
 
-		tx.Where("channel_id = ? AND client_id = ?", caseData.ChannelID, caseData.ClientID).Delete(&models.ChannelAgentClient{})
+			// Eliminar asignaciones previas
+			if err := tx.
+				Where("channel_id = ? AND client_id = ?", caseData.ChannelID, caseData.ClientID).
+				Delete(&models.ChannelAgentClient{}).Error; err != nil {
+				return fmt.Errorf("error al eliminar asignaciones previas: %w", err)
+			}
 
-		// Insertar nuevo registro
+			// Convertir channel_id
+			channelIDInt, err := strconv.ParseInt(caseData.ChannelID, 10, 64)
+			if err != nil {
+				return fmt.Errorf("channel_id inválido, no se pudo convertir a int64: %v", err)
+			}
 
-		channelIDInt, err := strconv.ParseInt(caseData.ChannelID, 10, 64)
-		if err != nil {
-			return fmt.Errorf("channel_id inválido, no se pudo convertir a int64: %v", err)
+			// Crear nueva relación
+			channelAgentClient := models.ChannelAgentClient{
+				ChannelID:    channelIDInt,
+				AgentID:      int64(agentID),
+				DepartmentID: int64(departmentID),
+				ClientID:     int64(*caseData.ClientID),
+			}
+
+			if err := tx.Create(&channelAgentClient).Error; err != nil {
+				return fmt.Errorf("error al crear el nuevo registro en channel_agent_clients: %w", err)
+			}
 		}
 
-		channelAgentClient := models.ChannelAgentClient{
-			ChannelID:    channelIDInt,
-			AgentID:      int64(agentID),
-			DepartmentID: int64(departmentID),
-			ClientID:     int64(*caseData.ClientID),
-		}
-
-		if err := tx.Create(&channelAgentClient).Error; err != nil {
-			return fmt.Errorf("error al crear el nuevo registro en channel_agent_clients: %w", err)
-		}
-
+		// Si todo salió bien, se hace COMMIT automático
 		return nil
 	})
 }

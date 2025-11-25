@@ -43,7 +43,35 @@ docker run -d --name harmony_service \
   --restart unless-stopped \
   ehitelrc/harmony_service:latest
 
+
+
 // Por nombre
 
 docker rm -f harmony_service
 docker rmi -f ehitelrc/harmony_service:latest
+
+
+docker logs -f harmony_service
+
+
+
+# Solo para ingreso de mensajes
+docker run -d --name harmony_service_messages_in \
+  -p 8099:8098 \
+  --restart unless-stopped \
+  ehitelrc/harmony_service:latest
+
+docker rm -f  harmony_service_messages_in
+
+
+// para trabar con compose
+
+cd /opt
+cd /harmony
+
+make pull  ## bajar imagen
+make up-hs ## instalar docker servicio generarl
+make up-messages
+
+## ver imagenes con compose
+docker compose ps -a
