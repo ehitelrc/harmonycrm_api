@@ -38,6 +38,12 @@ type CaseWithChannel struct {
 	ClientMessages       *int    `json:"client_messages,omitempty" gorm:"column:client_messages"`
 	ChannelIntegrationID uint    `json:"channel_integration_id" gorm:"column:channel_integration_id"`
 	IntegrationName      string  `json:"integration_name" gorm:"column:integration_name"`
+
+	// agent_assigned true si el caso tiene un agente asignado
+	AgentAssigned bool `json:"agent_assigned" gorm:"column:agent_assigned"`
+
+	//agent_full_name es el nombre completo del agente asignado
+	AgentFullName *string `json:"agent_full_name,omitempty" gorm:"column:agent_full_name"`
 }
 
 func (CaseWithChannel) TableName() string {

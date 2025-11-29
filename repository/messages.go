@@ -242,6 +242,15 @@ func (r *MessageRepository) GetUnassignedCasesByCompanyAndDepartmentID(companyID
 	return unassignedCases, err
 }
 
+// Open cases by company and department
+func (r *MessageRepository) GetOpenCasesByCompanyAndDepartmentID(companyID int, departmentID int) ([]models.CaseWithChannel, error) {
+	var openCases []models.CaseWithChannel
+
+	err := config.DB.Where("company_id = ? AND department_id = ? AND status = ?", companyID, departmentID, "open").Find(&openCases).Error
+
+	return openCases, err
+}
+
 func (r *MessageRepository) GetActiveCasesByAgentID(agentID string) ([]models.CaseWithChannel, error) {
 	var activeCases []models.CaseWithChannel
 	err := config.DB.Where("agent_id = ? AND status = ?", agentID, "open").Find(&activeCases).Error
@@ -280,6 +289,8 @@ func (r *MessageRepository) SendMessageToPlatform(message models.AgentMessage) e
 		Base64Content: message.Base64Content,
 		MIMEType:      message.MIMEType,
 		AgentID:       &agentID,
+		HasError:      message.HasError,
+		MessageError:  message.MessageError,
 	}
 
 	err = config.DB.Create(&newMessage).Error
@@ -573,4 +584,68 @@ func (r *MessageRepository) GetCaseGeneralInformationByAgent(companyID, campaign
 	}
 
 	return cases, nil
+}
+
+func (r *MessageRepository) GetMessageControl(messageID string) (bool, error) {
+	var record models.WhatsAppMessageControl
+
+	// 1️⃣ Buscar si existe
+	err := config.DB.
+		Where("ws_message__id = ?", messageID).
+		First(&record).Error
+
+	if err == nil {
+		// ✔ YA existe
+		return true, nil
+	}
+
+	// Si el error es distinto a "not found", es un error real
+	if err != gorm.ErrRecordNotFound {
+		return false, err
+	}
+
+	// 2️⃣ NO existe → Insertamos el control
+	newRecord := models.WhatsAppMessageControl{
+		WSMessageID: messageID,
+	}
+
+	if err := config.DB.Create(&newRecord).Error; err != nil {
+		return false, err
+	}
+
+	// ✔ NO existía, ya quedó insertado
+	return false, nil
+}
+
+func (r *MessageRepository) SaveOutgoingMessageStatus(
+	caseID int,
+	text string,
+	wamid string,
+	apiResponse string,
+	err error,
+) error {
+
+	// status := "sent"
+	// errMsg := ""
+
+	// if err != nil {
+	// 	status = "failed"
+	// 	errMsg = err.Error()
+	// }
+
+	// query := `
+	//     INSERT INTO outgoing_messages_log(case_id, message_text, wamid, api_response, status, error_message, created_at)
+	//     VALUES ($1, $2, $3, $4, $5, $6, NOW())
+	// `
+	// _, execErr := config.DB.Exec(
+	// 	query,
+	// 	caseID,
+	// 	text,
+	// 	wamid,
+	// 	apiResponse,
+	// 	status,
+	// 	errMsg,
+	// )
+
+	return nil
 }

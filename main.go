@@ -5,11 +5,19 @@ import (
 	"harmony_api/middlewares"
 	"harmony_api/routes"
 	"harmony_api/ws"
+	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("⚠ No se pudo cargar .env, usando variables del sistema")
+	}
+
 	r := gin.Default()
 
 	// Cargar configuración

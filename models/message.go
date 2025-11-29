@@ -13,6 +13,8 @@ type Message struct {
 	CreatedAt     time.Time `json:"created_at"`
 	Base64Content string    `gorm:"type:text" json:"base64_content,omitempty"`
 	AgentID       *uint     `json:"agent_id,omitempty"`
+	HasError      bool      `gorm:"default:false" json:"has_error"`
+	MessageError  string    `gorm:"type:text" json:"message_error,omitempty"`
 }
 
 func (m *Message) TableName() string {

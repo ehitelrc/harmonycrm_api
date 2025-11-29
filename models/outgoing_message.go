@@ -7,4 +7,6 @@ type AgentMessage struct {
 	TextMessage   string `json:"text_message"`
 	Base64Content string `json:"base64_content,omitempty"`
 	MIMEType      string `json:"mime_type,omitempty"`
+	HasError      bool   `json:"has_error"`
+	MessageError  string `json:"message_error,omitempty"`
 }

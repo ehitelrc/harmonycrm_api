@@ -124,6 +124,30 @@ func (m *MessageEntry) GetCasesWithoutAgentByCompanyAndDepartmentID(c *gin.Conte
 	utils.Respond(c, http.StatusOK, true, "Casos sin agente asignado obtenidos correctamente!", cases, nil)
 }
 
+// Get open cases by company_id and department_id
+func (m *MessageEntry) GetOpenCasesByCompanyAndDepartmentID(c *gin.Context) {
+	companyID := c.Param("company_id")
+	departmentID := c.Param("department_id")
+	companyIDInt, err := strconv.Atoi(companyID)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+	departmentIDInt, err := strconv.Atoi(departmentID)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "department_id inválido", nil, err)
+		return
+	}
+
+	repository := repository.MessageRepository{}
+	openCases, err := repository.GetOpenCasesByCompanyAndDepartmentID(companyIDInt, departmentIDInt)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener los casos abiertos", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Casos abiertos obtenidos correctamente!", openCases, nil)
+}
+
 func (m *MessageEntry) ReceiveImageMessageWebhookMedia(c *gin.Context) {
 	var input models.IncomingMessage
 
@@ -304,11 +328,46 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 				return
 			}
 		} else if channelIntegration.ChannelCode == "whatsapp" && input.MessageType == "text" {
-			err := m.DispatchWhatsappTextMessage(channelIntegration, input)
+			//err := m.DispatchWhatsappTextMessage(channelIntegration, input)
+			wamid, apiResponse, err := m.SendWhatsAppTextDirect(
+				*channelIntegration.AppIdentifier,
+				*channelIntegration.AccessToken,
+				*channelIntegration.SenderID,
+				input.TextMessage,
+			)
+
+			// Guardar en DB el intento (éxito o error)
+			repo := repository.MessageRepository{}
+			repo.SaveOutgoingMessageStatus(int(input.CaseID), input.TextMessage, wamid, apiResponse, err)
+
 			if err != nil {
-				utils.Respond(c, http.StatusInternalServerError, false, "Error al enviar el mensaje", nil, err)
-				return
+
+				input.HasError = true
+				input.MessageError = err.Error()
+
+				utils.Respond(c, http.StatusOK, false, "Error al enviar mensaje a WhatsApp", apiResponse, err)
+
+			} else {
+				// Todo salió bien
+
+				input.HasError = false
+				input.MessageError = ""
+
+				utils.Respond(c, http.StatusOK, true, "Mensaje enviado correctamente", map[string]interface{}{
+					"wamid":    wamid,
+					"response": apiResponse,
+				}, nil)
 			}
+
+			// Notificar Frontend por WebSocket
+			// payload, _ := json.Marshal(WSMessage{
+			// 	Type:   "new_message",
+			// 	CaseID: uint(input.CaseID),
+			// 	Data:   input,
+			// })
+			// channel := "case:" + strconv.Itoa(int(input.CaseID))
+			// m.hub.BroadcastJSON(channel, payload)
+
 		} else if channelIntegration.ChannelCode == "whatsapp" && input.MessageType == "image" {
 
 			media_id, err := uploadBase64Image(*channelIntegration.AppIdentifier, *channelIntegration.AccessToken, input.Base64Content)
@@ -492,6 +551,108 @@ func (m *MessageEntry) DispatchTextMessage(channelIntegration *models.VWCaseChan
 	return nil
 }
 
+// send WhatsApp text direct via API
+// func (m *MessageEntry) SendWhatsAppTextDirect(phoneNumberID, accessToken, to, messageText string) error {
+// 	url := fmt.Sprintf("https://graph.facebook.com/v24.0/%s/messages", phoneNumberID)
+
+// 	payload := map[string]interface{}{
+// 		"messaging_product": "whatsapp",
+// 		"to":                to,
+// 		"type":              "text",
+// 		"text": map[string]interface{}{
+// 			"body": messageText,
+// 		},
+// 	}
+
+// 	body, _ := json.Marshal(payload)
+
+// 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+// 	if err != nil {
+// 		return fmt.Errorf("error creando request: %w", err)
+// 	}
+
+// 	req.Header.Set("Authorization", "Bearer "+accessToken)
+// 	req.Header.Set("Content-Type", "application/json")
+
+// 	resp, err := http.DefaultClient.Do(req)
+// 	if err != nil {
+// 		return fmt.Errorf("error enviando request: %w", err)
+// 	}
+// 	defer resp.Body.Close()
+
+// 	respBody, _ := io.ReadAll(resp.Body)
+// 	fmt.Println("📡 Respuesta WhatsApp:", string(respBody))
+
+// 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+// 		return fmt.Errorf("error API WhatsApp (%d): %s", resp.StatusCode, string(respBody))
+// 	}
+
+// 	return nil
+// }
+
+func (m *MessageEntry) SendWhatsAppTextDirect(
+	phoneNumberID, accessToken, to, messageText string,
+) (string, string, error) {
+
+	url := fmt.Sprintf("https://graph.facebook.com/v24.0/%s/messages", phoneNumberID)
+
+	payload := map[string]interface{}{
+		"messaging_product": "whatsapp",
+		"to":                to,
+		"type":              "text",
+		"text": map[string]interface{}{
+			"body": messageText,
+		},
+	}
+
+	body, _ := json.Marshal(payload)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return "", "", fmt.Errorf("error creando request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", "", fmt.Errorf("error enviando request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Respuesta cruda
+	respBody, _ := io.ReadAll(resp.Body)
+	respString := string(respBody)
+
+	fmt.Println("📡 Respuesta WhatsApp:", respString)
+
+	// Validaciones del status
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return "", respString, fmt.Errorf("error API WhatsApp (%d): %s", resp.StatusCode, respString)
+	}
+
+	// Parsear respuesta
+	var result struct {
+		Messages []struct {
+			ID string `json:"id"`
+		} `json:"messages"`
+	}
+
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", respString, fmt.Errorf("error parseando respuesta: %w", err)
+	}
+
+	if len(result.Messages) == 0 {
+		return "", respString, fmt.Errorf("la API regresó 200 pero no devolvió mensajes")
+	}
+
+	wamid := result.Messages[0].ID
+
+	return wamid, respString, nil
+}
+
+// Send via n8n WhatsApp webhook
 func (m *MessageEntry) DispatchWhatsappTextMessage(channelIntegration *models.VWCaseChannelIntegration, message models.AgentMessage) error {
 	url := channelIntegration.WebhookURL
 	//url := "https://ehitelrc.app.n8n.cloud/webhook-test/6b2b114c-f863-44b6-8ab6-a80968c24d82"

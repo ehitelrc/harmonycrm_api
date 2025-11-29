@@ -70,4 +70,7 @@ func InitializeMessage(r gin.RouterGroup, hub *ws.Hub) {
 	// By company and department unassigned cases
 	api.GET("/entry/unassigned_cases/company/:company_id/department/:department_id", controller.GetCasesWithoutAgentByCompanyAndDepartmentID)
 
+	// Open cases by company_id and department_id
+	api.GET("/entry/open_cases/company/:company_id/department/:department_id", controller.GetOpenCasesByCompanyAndDepartmentID)
+
 }

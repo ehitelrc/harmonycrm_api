@@ -86,6 +86,8 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 
 	RegristerCustomFieldRoutes(api)
 
+	RegisterWhatsappWebHookRoutes(api, hub)
+
 	// Endpoint de verificación de estado
 	api.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
