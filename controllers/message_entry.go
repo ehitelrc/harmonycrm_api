@@ -336,16 +336,18 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 				input.TextMessage,
 			)
 
-			// Guardar en DB el intento (éxito o error)
-			repo := repository.MessageRepository{}
-			repo.SaveOutgoingMessageStatus(int(input.CaseID), input.TextMessage, wamid, apiResponse, err)
+			fmt.Println("✅ WAMID:", wamid)
+			fmt.Println("✅ API Response:", apiResponse)
 
 			if err != nil {
 
+				// Generar log visible para debug
+				fmt.Println("*********************************************************")
+				fmt.Println("** ERROR ENVIANDO MENSAJE DE TEXTO DIRECTO:", err.Error())
+				fmt.Println("*********************************************************")
+
 				input.HasError = true
 				input.MessageError = err.Error()
-
-				utils.Respond(c, http.StatusOK, false, "Error al enviar mensaje a WhatsApp", apiResponse, err)
 
 			} else {
 				// Todo salió bien
@@ -353,10 +355,6 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 				input.HasError = false
 				input.MessageError = ""
 
-				utils.Respond(c, http.StatusOK, true, "Mensaje enviado correctamente", map[string]interface{}{
-					"wamid":    wamid,
-					"response": apiResponse,
-				}, nil)
 			}
 
 			// Notificar Frontend por WebSocket
