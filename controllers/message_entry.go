@@ -1361,15 +1361,62 @@ func cleanBase64(input string) string {
 	return input
 }
 
+// func convertWebMToOgg(b64 string) (string, string, error) {
+
+// 	// NORMALIZAR BASE64
+// 	clean := strings.ReplaceAll(b64, "\n", "")
+// 	clean = strings.ReplaceAll(clean, "\r", "")
+// 	clean = strings.ReplaceAll(clean, " ", "")
+// 	missing := len(clean) % 4
+// 	if missing > 0 {
+// 		clean += strings.Repeat("=", 4-missing)
+// 	}
+
+// 	decoded, err := base64.StdEncoding.DecodeString(clean)
+// 	if err != nil {
+// 		return "", "", fmt.Errorf("decode error: %w", err)
+// 	}
+
+// 	// Guardar archivo temporal
+// 	if err := os.WriteFile("tmp_in.webm", decoded, 0644); err != nil {
+// 		return "", "", err
+// 	}
+
+// 	// Forzar formato webm →
+// 	cmd := exec.Command("ffmpeg",
+// 		"-y",
+// 		"-f", "webm",
+// 		"-i", "tmp_in.webm",
+// 		"-c:a", "libopus",
+// 		"tmp_out.ogg",
+// 	)
+
+// 	var stderr bytes.Buffer
+// 	cmd.Stderr = &stderr
+
+// 	if err := cmd.Run(); err != nil {
+// 		return "", "", fmt.Errorf("ffmpeg error: %v | stderr: %s", err, stderr.String())
+// 	}
+
+// 	// Leer ogg resultante
+// 	oggBytes, err := os.ReadFile("tmp_out.ogg")
+// 	if err != nil {
+// 		return "", "", err
+// 	}
+
+// 	oggBase64 := base64.StdEncoding.EncodeToString(oggBytes)
+
+// 	return oggBase64, "audio/ogg", nil
+// }
+
 func convertWebMToOgg(b64 string) (string, string, error) {
 
-	// NORMALIZAR BASE64
+	// 1️⃣ Normalizar base64
 	clean := strings.ReplaceAll(b64, "\n", "")
 	clean = strings.ReplaceAll(clean, "\r", "")
 	clean = strings.ReplaceAll(clean, " ", "")
-	missing := len(clean) % 4
-	if missing > 0 {
-		clean += strings.Repeat("=", 4-missing)
+	if m := len(clean) % 4; m != 0 {
+		clean += strings.Repeat("=", 4-m)
 	}
 
 	decoded, err := base64.StdEncoding.DecodeString(clean)
@@ -1377,18 +1424,31 @@ func convertWebMToOgg(b64 string) (string, string, error) {
 		return "", "", fmt.Errorf("decode error: %w", err)
 	}
 
-	// Guardar archivo temporal
-	if err := os.WriteFile("tmp_in.webm", decoded, 0644); err != nil {
-		return "", "", err
+	// 2️⃣ Crear carpeta temporal única
+	tempDir, err := os.MkdirTemp("", "audio_convert_*")
+	if err != nil {
+		return "", "", fmt.Errorf("temp dir error: %w", err)
 	}
 
-	// Forzar formato webm →
+	// borrar todo al terminar
+	defer os.RemoveAll(tempDir)
+
+	// 3️⃣ Rutas seguras
+	inPath := filepath.Join(tempDir, "in.webm")
+	outPath := filepath.Join(tempDir, "out.ogg")
+
+	// 4️⃣ Guardar el archivo webm
+	if err := os.WriteFile(inPath, decoded, 0644); err != nil {
+		return "", "", fmt.Errorf("write error: %w", err)
+	}
+
+	// 5️⃣ Ejecutar ffmpeg con formato forzado
 	cmd := exec.Command("ffmpeg",
 		"-y",
 		"-f", "webm",
-		"-i", "tmp_in.webm",
+		"-i", inPath,
 		"-c:a", "libopus",
-		"tmp_out.ogg",
+		outPath,
 	)
 
 	var stderr bytes.Buffer
@@ -1398,10 +1458,10 @@ func convertWebMToOgg(b64 string) (string, string, error) {
 		return "", "", fmt.Errorf("ffmpeg error: %v | stderr: %s", err, stderr.String())
 	}
 
-	// Leer ogg resultante
-	oggBytes, err := os.ReadFile("tmp_out.ogg")
+	// 6️⃣ Leer ogg final
+	oggBytes, err := os.ReadFile(outPath)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("read ogg error: %w", err)
 	}
 
 	oggBase64 := base64.StdEncoding.EncodeToString(oggBytes)

@@ -2,7 +2,7 @@ package models
 
 // CampaignWhatsappPushRequest representa el payload maestro-detalle
 type CampaignWhatsappPushRequest struct {
-	CampaignID           int64                           `json:"campaign_id" binding:"required"`
+	CampaignID           *int64                          `json:"campaign_id"`
 	Description          string                          `json:"description" binding:"required"`
 	TemplateID           int64                           `json:"template_id" binding:"required"`
 	ChangedBy            int                             `json:"changed_by" binding:"required"`

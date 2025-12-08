@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"harmony_api/config"
 	"harmony_api/dto"
 	"harmony_api/models"
@@ -21,108 +20,265 @@ func NewCampaignPushingRepository() *CampaignPushingRepository {
 }
 
 // CreateWhatsappPush guarda el encabezado y los leads en una sola transacción
+// func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhatsappPushRequest, hub *ws.Hub) (int64, error) {
+// 	db := config.DB
+// 	var pushID int64
+
+// 	err := db.Transaction(func(tx *gorm.DB) error {
+// 		// 1. Guardar encabezado
+
+// 		if data.CampaignID != nil {
+// 			header := models.CampaignWhatsappPush{
+// 				CampaignID:  data.CampaignID,
+// 				Description: data.Description,
+// 				TemplateID:  data.TemplateID,
+// 				ChangedBy:   data.ChangedBy,
+// 			}
+
+// 			if err := tx.Create(&header).Error; err != nil {
+// 				return err
+// 			}
+
+// 			// Recuperar ID generado
+// 			pushID = header.ID
+// 		}
+
+// 		// Search channel ID by template ID
+// 		var template models.CompanyChannelTemplateView
+
+// 		if err := tx.Where("template_id = ?", data.TemplateID).First(&template).Error; err != nil {
+// 			return err
+// 		}
+
+// 		var numbers []string
+
+// 		// 2. Guardar leads si existen
+// 		if len(data.Leads) > 0 {
+// 			var leads []models.CampaignWhatsappPushLead
+// 			var messages []models.Message
+
+// 			var recipients []models.TemplateRecipient
+
+// 			for _, l := range data.Leads {
+
+// 				var clienteChannel models.VWClientSocialAccount
+// 				var clientID *int64
+
+// 				// Buscar cliente por canal + número
+// 				if err := config.DB.
+// 					Where("channel_id = ? AND social_external_id = ?", template.ChannelID, l.PhoneNumber).
+// 					First(&clienteChannel).Error; err == nil {
+
+// 					id := int64(clienteChannel.ClientID) // convertir a int64
+// 					clientID = &id
+// 				} else if err != gorm.ErrRecordNotFound {
+// 					fmt.Println("Error al buscar el cliente:", err)
+// 				}
+
+// 				var caseId *int64 = nil
+
+// 				if l.CaseID != nil {
+// 					caseId = l.CaseID
+// 				}
+
+// 				println(caseId)
+
+// 				lead := models.CampaignWhatsappPushLead{
+// 					PushID:      pushID,
+// 					PhoneNumber: l.PhoneNumber,
+// 					ClientID:    clientID,
+// 					CaseID:      caseId,
+// 					FullName:    l.FullName,
+// 					MessageSent: false,
+// 				}
+
+// 				leads = append(leads, lead)
+// 				numbers = append(numbers, l.PhoneNumber)
+
+// 				// Agregar a la lista de destinatarios del template
+// 				recipients = append(recipients, models.TemplateRecipient{
+// 					Number: l.PhoneNumber,
+// 					CaseID: caseId,
+// 				})
+
+// 				if l.ManualStartingLead {
+// 					messages = append(messages, models.Message{
+// 						CaseID:      uint(*caseId),
+// 						SenderType:  "client",
+// 						MessageType: "text",
+// 						TextContent: "Apertura mediante template",
+// 					})
+
+// 				}
+// 			}
+
+// 			if err := tx.Create(&leads).Error; err != nil {
+// 				return err
+// 			}
+
+// 			if len(messages) > 0 {
+// 				if err := tx.Create(&messages).Error; err != nil {
+// 					return err
+// 				}
+
+// 			}
+
+// 			utils.SendTemplateToMany(template.TemplateUrlWebhook, *template.AppIdentifier, *template.AccessToken, *template.TemplateName, *template.Language, recipients, hub)
+// 		}
+
+// 		return nil
+// 	})
+
+// 	if err != nil {
+// 		return 0, err
+// 	}
+
+// 	return pushID, nil
+// }
+
 func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhatsappPushRequest, hub *ws.Hub) (int64, error) {
 	db := config.DB
 	var pushID int64
 
 	err := db.Transaction(func(tx *gorm.DB) error {
-		// 1. Guardar encabezado
-		header := models.CampaignWhatsappPush{
-			CampaignID:  data.CampaignID,
-			Description: data.Description,
-			TemplateID:  data.TemplateID,
-			ChangedBy:   data.ChangedBy,
+
+		// ===========================================================
+		// 1. Crear encabezado solo si CampaignID != nil
+		// ===========================================================
+		if data.CampaignID != nil {
+			header := models.CampaignWhatsappPush{
+				CampaignID:  data.CampaignID,
+				Description: data.Description,
+				TemplateID:  data.TemplateID,
+				ChangedBy:   data.ChangedBy,
+			}
+
+			if err := tx.Create(&header).Error; err != nil {
+				return err
+			}
+
+			pushID = header.ID
 		}
 
-		if err := tx.Create(&header).Error; err != nil {
-			return err
-		}
-
-		// Search channel ID by template ID
+		// Buscar info del template
 		var template models.CompanyChannelTemplateView
-
 		if err := tx.Where("template_id = ?", data.TemplateID).First(&template).Error; err != nil {
 			return err
 		}
 
-		// Recuperar ID generado
-		pushID = header.ID
+		// Listas donde meteremos leads + recipients para el envío masivo
+		var leadsToInsert []models.CampaignWhatsappPushLead
+		var recipients []models.TemplateRecipient
 
-		var numbers []string
+		// ===========================================================
+		// 2. Procesar cada lead
+		// ===========================================================
+		for _, l := range data.Leads {
 
-		// 2. Guardar leads si existen
-		if len(data.Leads) > 0 {
-			var leads []models.CampaignWhatsappPushLead
-			var messages []models.Message
+			// Primero buscar si existe un case abierto para este número
+			var existingCase models.Case
+			err := tx.
+				Where("channel_integration_id = ? AND sender_id = ? AND status = ?",
+					template.ChannelIntegrationID, l.PhoneNumber, "open").
+				First(&existingCase).Error
 
-			var recipients []models.TemplateRecipient
+			var caseID int64
 
-			for _, l := range data.Leads {
+			if err == nil {
+				// Caso ya existe
+				caseID = int64(existingCase.ID)
 
-				var clienteChannel models.VWClientSocialAccount
-				var clientID *int64
+			} else if err == gorm.ErrRecordNotFound {
 
-				// Buscar cliente por canal + número
-				if err := config.DB.
-					Where("channel_id = ? AND social_external_id = ?", template.ChannelID, l.PhoneNumber).
-					First(&clienteChannel).Error; err == nil {
+				// =======================================================
+				// 2A. Crear un nuevo caso porque NO existe uno abierto
+				// =======================================================
 
-					id := int64(clienteChannel.ClientID) // convertir a int64
-					clientID = &id
-				} else if err != gorm.ErrRecordNotFound {
-					fmt.Println("Error al buscar el cliente:", err)
-				}
-
-				var caseId *int64 = nil
-
-				if l.CaseID != nil {
-					caseId = l.CaseID
-				}
-
-				println(caseId)
-
-				lead := models.CampaignWhatsappPushLead{
-					PushID:      pushID,
-					PhoneNumber: l.PhoneNumber,
-					ClientID:    clientID,
-					CaseID:      caseId,
-					FullName:    l.FullName,
-					MessageSent: false,
-				}
-
-				leads = append(leads, lead)
-				numbers = append(numbers, l.PhoneNumber)
-
-				// Agregar a la lista de destinatarios del template
-				recipients = append(recipients, models.TemplateRecipient{
-					Number: l.PhoneNumber,
-					CaseID: caseId,
-				})
-
-				if l.ManualStartingLead {
-					messages = append(messages, models.Message{
-						CaseID:      uint(*caseId),
-						SenderType:  "client",
-						MessageType: "text",
-						TextContent: "Apertura mediante template",
-					})
-
-				}
-			}
-
-			if err := tx.Create(&leads).Error; err != nil {
-				return err
-			}
-
-			if len(messages) > 0 {
-				if err := tx.Create(&messages).Error; err != nil {
+				// Para crear el caso ocupamos datos del integration
+				var integration models.ViewChannelIntegration
+				if err := tx.Where("channel_integration_id = ?", template.ChannelIntegrationID).First(&integration).Error; err != nil {
 					return err
 				}
 
+				channelIDStr := strconv.FormatUint(uint64(integration.ChannelID), 10)
+
+				newCase := models.Case{
+					SenderId:             l.PhoneNumber,
+					ChannelID:            channelIDStr,
+					CompanyID:            integration.CompanyID,
+					ChannelIntegrationID: integration.ChannelIntegrationID,
+					IsNonCommercial:      integration.IsNonCommercial,
+					DepartmentID:         *integration.DepartmentID,
+					ClientID:             Int64PtrToUintPtr(l.ClientID),
+					AgentID:              uint(data.ChangedBy),
+					Status:               "open",
+				}
+
+				if err := tx.Create(&newCase).Error; err != nil {
+					return err
+				}
+
+				// Crear mensaje inicial
+				openMsg := models.Message{
+					CaseID:      newCase.ID,
+					SenderType:  "agent",
+					MessageType: "text",
+					TextContent: "Apertura mediante template",
+					MessageRead: true,
+				}
+
+				if err := tx.Create(&openMsg).Error; err != nil {
+					return err
+				}
+
+				caseID = int64(newCase.ID)
+
+			} else {
+				// Error inesperado al buscar case
+				return err
 			}
 
-			utils.SendTemplateToMany(template.TemplateUrlWebhook, *template.AppIdentifier, *template.AccessToken, *template.TemplateName, *template.Language, recipients, hub)
+			// Crear lead solo si CampaignID != nil (Campaña activa)
+			if data.CampaignID != nil {
+				lead := models.CampaignWhatsappPushLead{
+					PushID:      pushID,
+					PhoneNumber: l.PhoneNumber,
+					ClientID:    l.ClientID,
+					CaseID:      &caseID,
+					FullName:    l.FullName,
+					MessageSent: false,
+				}
+				leadsToInsert = append(leadsToInsert, lead)
+			}
+
+			// Agregar a recipients para envío del template
+			recipients = append(recipients, models.TemplateRecipient{
+				Number: l.PhoneNumber,
+				CaseID: &caseID,
+			})
 		}
+
+		// ===========================================================
+		// 3. Insertar leads si corresponde
+		// ===========================================================
+		if len(leadsToInsert) > 0 {
+			if err := tx.Create(&leadsToInsert).Error; err != nil {
+				return err
+			}
+		}
+
+		// ===========================================================
+		// 4. Enviar mensaje de plantilla
+		// ===========================================================
+		utils.SendTemplateToMany(
+			template.TemplateUrlWebhook,
+			*template.AppIdentifier,
+			*template.AccessToken,
+			*template.TemplateName,
+			*template.Language,
+			recipients,
+			hub,
+		)
 
 		return nil
 	})
@@ -247,4 +403,12 @@ func (r *CampaignPushingRepository) NewCaseFromTemplate(request dto.NewWhatsappC
 	}
 
 	return caseID, nil
+}
+
+func Int64PtrToUintPtr(v *int64) *uint {
+	if v == nil {
+		return nil
+	}
+	u := uint(*v)
+	return &u
 }
