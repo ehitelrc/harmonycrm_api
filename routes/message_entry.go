@@ -73,4 +73,7 @@ func InitializeMessage(r gin.RouterGroup, hub *ws.Hub) {
 	// Open cases by company_id and department_id
 	api.GET("/entry/open_cases/company/:company_id/department/:department_id", controller.GetOpenCasesByCompanyAndDepartmentID)
 
+	// Mark messages as read by case_id
+	api.PUT("/entry/mark_messages_read/case/:case_id", controller.MarkMessagesAsReadByCaseID)
+
 }

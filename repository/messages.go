@@ -207,6 +207,8 @@ func (r *MessageRepository) CreateMessage(message models.IncomingMessage) (*mode
 		FileURL:       message.FileURL,
 		MIMEType:      message.MIMEType,
 		Base64Content: message.Base64Content,
+		AgentID:       &cases.AgentID,
+		MessageRead:   false,
 	}
 
 	if err := config.DB.Create(&newMessage).Error; err != nil {
@@ -249,6 +251,14 @@ func (r *MessageRepository) GetOpenCasesByCompanyAndDepartmentID(companyID int, 
 	err := config.DB.Where("company_id = ? AND department_id = ? AND status = ?", companyID, departmentID, "open").Find(&openCases).Error
 
 	return openCases, err
+}
+
+// Mark messages as read by case_id
+func (r *MessageRepository) MarkMessagesAsReadByCaseID(caseID string) error {
+	err := config.DB.Model(&models.Message{}).
+		Where("case_id = ? AND message_read = ?", caseID, false).
+		Update("message_read", true).Error
+	return err
 }
 
 func (r *MessageRepository) GetActiveCasesByAgentID(agentID string) ([]models.CaseWithChannel, error) {

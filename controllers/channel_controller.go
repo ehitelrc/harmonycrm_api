@@ -140,6 +140,23 @@ func (ctrl *ChannelController) GetWhatsappTemplatesByCompanyID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": templates})
 }
 
+// By department
+func (ctrl *ChannelController) GetWhatsappTemplatesByDepartmentID(c *gin.Context) {
+	departmentIDParam := c.Param("department_id")
+	departmentID, err := strconv.Atoi(departmentIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID de departamento inválido"})
+		return
+	}
+
+	templates, err := ctrl.Repo.GetWhatsappTemplatesByDepartmentID(uint(departmentID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Error al obtener plantillas de Whatsapp", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": templates})
+}
+
 func (ctrl *ChannelController) GetChannelWhatsappIntegrationsByCompanyID(c *gin.Context) {
 	companyIDParam := c.Param("company_id")
 	companyID, err := strconv.Atoi(companyIDParam)

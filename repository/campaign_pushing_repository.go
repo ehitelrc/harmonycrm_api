@@ -3,9 +3,11 @@ package repository
 import (
 	"fmt"
 	"harmony_api/config"
+	"harmony_api/dto"
 	"harmony_api/models"
 	"harmony_api/utils"
 	"harmony_api/ws"
+	"strconv"
 
 	"gorm.io/gorm"
 )
@@ -130,4 +132,119 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 	}
 
 	return pushID, nil
+}
+
+// SendWhatsappTemplateMessage envía un mensaje de plantilla de WhatsApp para un caso específico
+func (r *CampaignPushingRepository) SendWhatsappTemplateMessage(templateID int, caseID int) error {
+	// Buscar template
+	var template models.ChannelWhatsAppTemplate
+
+	if err := config.DB.Where("id = ?", templateID).First(&template).Error; err != nil {
+		return err
+	}
+
+	// Buscar caso
+	var caseChannelIntegration models.VWCaseChannelIntegration
+
+	if err := config.DB.Where("case_id = ?", caseID).First(&caseChannelIntegration).Error; err != nil {
+		return err
+	}
+
+	// Enviar mensaje de plantilla
+	caseIDParam := int64(caseChannelIntegration.CaseID)
+
+	recipients := []models.TemplateRecipient{
+		{
+			Number: *caseChannelIntegration.SenderID,
+			CaseID: &caseIDParam,
+		},
+	}
+
+	utils.SendTemplateToMany(template.TemplateUrlWebhook, *caseChannelIntegration.AppIdentifier, *caseChannelIntegration.AccessToken, *&template.TemplateName, *&template.Language, recipients, nil)
+
+	return nil
+}
+
+func (r *CampaignPushingRepository) NewCaseFromTemplate(request dto.NewWhatsappCaseFromTemplateRequest, hub *ws.Hub) (int64, error) {
+	db := config.DB
+
+	var caseID int64
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+
+		// Search channel ID by template ID
+		var template models.CompanyChannelTemplateView
+
+		if err := tx.Debug().Where("template_id = ?", request.TemplateID).First(&template).Error; err != nil {
+			return err
+		}
+
+		var integration models.ViewChannelIntegration
+
+		if err := tx.Where("channel_integration_id = ?", request.ChannelIntegrationID).First(&integration).Error; err != nil {
+			return err
+		}
+
+		// Get case by channel_integration_id & sender_id and status open
+		var newCase models.Case
+
+		if err := tx.Debug().Where("channel_integration_id = ? AND sender_id = ? AND status = ?", request.ChannelIntegrationID, request.ContactPhone, "open").First(&newCase).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+
+				// Create new case
+
+				number := strconv.FormatUint(uint64(integration.ChannelID), 10)
+
+				newCase := models.Case{
+					SenderId:             request.ContactPhone,
+					ChannelID:            number,
+					CompanyID:            integration.CompanyID,
+					ChannelIntegrationID: integration.ChannelIntegrationID,
+					IsNonCommercial:      integration.IsNonCommercial,
+					DepartmentID:         *integration.DepartmentID,
+					ClientID:             request.ClientID,
+					AgentID:              uint(request.AgentID),
+					Status:               "open",
+				}
+
+				if err := tx.Create(&newCase).Error; err != nil {
+					return err
+				}
+
+				newMessage := models.Message{
+					CaseID:      newCase.ID,
+					SenderType:  "agent",
+					MessageType: "text",
+					TextContent: "Apertura mediante template",
+					MessageRead: true,
+				}
+
+				if err := tx.Create(&newMessage).Error; err != nil {
+					return err
+				}
+
+				caseID = int64(newCase.ID)
+
+				recipients := []models.TemplateRecipient{
+					{
+						Number: request.ContactPhone,
+						CaseID: &caseID,
+					},
+				}
+
+				utils.SendTemplateToMany(template.TemplateUrlWebhook, *template.AppIdentifier, *template.AccessToken, *template.TemplateName, *template.Language, recipients, hub)
+
+			} else {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
+	return caseID, nil
 }

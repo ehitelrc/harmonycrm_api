@@ -71,6 +71,15 @@ func (r *ChannelRepository) GetChannelWhatsappIntegrationsByCompanyID(companyId 
 	return integrations, nil
 }
 
+// By department
+func (r *ChannelRepository) GetWhatsappTemplatesByDepartmentID(departmentId uint) ([]models.VwChannelWhatsAppTemplate, error) {
+	var templates []models.VwChannelWhatsAppTemplate
+	if err := config.DB.Where("department_id = ?", departmentId).Find(&templates).Error; err != nil {
+		return nil, err
+	}
+	return templates, nil
+}
+
 func (r *ChannelRepository) GetChannelWhatsappIntegrationsByDepartmentID(departmentId uint) ([]models.ViewChannelIntegration, error) {
 	var integrations []models.ViewChannelIntegration
 	if err := config.DB.Where("department_id = ? and channel_code = ?", departmentId, "whatsapp").Find(&integrations).Error; err != nil {
@@ -81,9 +90,9 @@ func (r *ChannelRepository) GetChannelWhatsappIntegrationsByDepartmentID(departm
 
 // By channel_integration_id
 
-func (r *ChannelRepository) GetChannelIntegrationByID(integration_id uint) ([]models.ChannelWhatsAppTemplate, error) {
-	var templates []models.ChannelWhatsAppTemplate
-	if err := config.DB.Where("channel_integration = ?", integration_id).Find(&templates).Error; err != nil {
+func (r *ChannelRepository) GetChannelIntegrationByID(integration_id uint) ([]models.ViewChannelIntegration, error) {
+	var templates []models.ViewChannelIntegration
+	if err := config.DB.Where("channel_integration_id  = ?", integration_id).Find(&templates).Error; err != nil {
 		return nil, err
 	}
 	return templates, nil

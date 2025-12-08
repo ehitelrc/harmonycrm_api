@@ -9,4 +9,5 @@ type AgentMessage struct {
 	MIMEType      string `json:"mime_type,omitempty"`
 	HasError      bool   `json:"has_error"`
 	MessageError  string `json:"message_error,omitempty"`
+	FileName      string `json:"file_name,omitempty"`
 }

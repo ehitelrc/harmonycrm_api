@@ -18,6 +18,10 @@ func RegisterChannelRoutes(r *gin.RouterGroup) {
 	// Channel Whatsapp template routes
 	r.POST("/channels/whatsapp/templates", controller.CreateWhatsappTemplate)
 	r.GET("/channels/whatsapp/templates/company/:company_id", controller.GetWhatsappTemplatesByCompanyID)
+
+	// By department
+	r.GET("/channels/whatsapp/templates/department/:department_id", controller.GetWhatsappTemplatesByDepartmentID)
+
 	r.PUT("/channels/whatsapp/templates", controller.UpdateWhatsappTemplate)
 	r.DELETE("/channels/whatsapp/templates/:template_id", controller.DeleteWhatsappTemplate)
 
@@ -35,7 +39,7 @@ func RegisterChannelRoutes(r *gin.RouterGroup) {
 	// Integrations by company and channel_id
 	r.GET("/channels/integrations/company/:company_id/channel/:channel_id", controller.GetChannelIntegrationsByCompanyAndChannelID)
 
-	// Get templates by channel_integration_id
-	r.GET("/channels/whatsapp/templates/integration/:channel_integration_id", controller.GetWhatsappTemplatesByChannelIntegrationID)
+	// Get templates by deparment_id
+	//r.GET("/channels/whatsapp/templates/department/:department_id", controller.GetWhatsappTemplatesByDepartmentID)
 
 }

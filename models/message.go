@@ -15,6 +15,7 @@ type Message struct {
 	AgentID       *uint     `json:"agent_id,omitempty"`
 	HasError      bool      `gorm:"default:false" json:"has_error"`
 	MessageError  string    `gorm:"type:text" json:"message_error,omitempty"`
+	MessageRead   bool      `gorm:"default:false" json:"message_read"`
 }
 
 func (m *Message) TableName() string {

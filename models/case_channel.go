@@ -44,6 +44,8 @@ type CaseWithChannel struct {
 
 	//agent_full_name es el nombre completo del agente asignado
 	AgentFullName *string `json:"agent_full_name,omitempty" gorm:"column:agent_full_name"`
+
+	UnreadCount *int `json:"unread_count,omitempty" gorm:"column:unread_count"`
 }
 
 func (CaseWithChannel) TableName() string {

@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -70,6 +71,9 @@ func (m *MessageEntry) ReceiveMessageWebhook(c *gin.Context) {
 		})
 		channel := "case:" + strconv.Itoa(int(newMessage.CaseID))
 		m.hub.BroadcastJSON(channel, payload)
+		if newMessage.AgentID != nil {
+			m.hub.BroadcastJSON("agent:"+strconv.Itoa(int(*newMessage.AgentID)), payload)
+		}
 	}
 
 	utils.Respond(c, http.StatusOK, true, "Mensaje recibido correctamente", input, nil)
@@ -146,6 +150,18 @@ func (m *MessageEntry) GetOpenCasesByCompanyAndDepartmentID(c *gin.Context) {
 		return
 	}
 	utils.Respond(c, http.StatusOK, true, "Casos abiertos obtenidos correctamente!", openCases, nil)
+}
+
+// MarkMessagesAsReadByCaseID
+func (m *MessageEntry) MarkMessagesAsReadByCaseID(c *gin.Context) {
+	caseID := c.Param("case_id")
+	repository := repository.MessageRepository{}
+	err := repository.MarkMessagesAsReadByCaseID(caseID)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al marcar los mensajes como leídos", nil, err)
+		return
+	}
+	utils.Respond(c, http.StatusOK, true, "Mensajes marcados como leídos correctamente", nil, nil)
 }
 
 func (m *MessageEntry) ReceiveImageMessageWebhookMedia(c *gin.Context) {
@@ -392,6 +408,73 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 				utils.Respond(c, http.StatusInternalServerError, false, "Error al enviar el mensaje", nil, err)
 				return
 			}
+		} else if channelIntegration.ChannelCode == "whatsapp" && input.MessageType == "file" {
+
+			mediaID, err := uploadBase64File(
+				*channelIntegration.AppIdentifier,
+				*channelIntegration.AccessToken,
+				input.Base64Content, // ← RAW BASE64
+				input.MIMEType,      // ← MIME EXACTO DEL FRONT
+				input.FileName,      // ← NOMBRE DEL ARCHIVO
+			)
+			if err != nil {
+				utils.Respond(c, http.StatusInternalServerError, false, "Error al subir archivo", nil, err)
+				return
+			}
+
+			err = m.sendWhatsAppDocument(
+				*channelIntegration.AppIdentifier,
+				*channelIntegration.AccessToken,
+				*channelIntegration.SenderID,
+				mediaID,
+				input.FileName,
+			)
+			if err != nil {
+				utils.Respond(c, http.StatusInternalServerError, false, "Error al enviar archivo", nil, err)
+				return
+			}
+		} else if channelIntegration.ChannelCode == "whatsapp" && input.MessageType == "audio" {
+
+			// ------------------------------
+			// AUDIO WEBM → OGG para WhatsApp
+			// ------------------------------
+			if input.MessageType == "audio" && input.MIMEType == "audio/webm" {
+
+				fmt.Println("🎧 Recibido audio WebM, convirtiendo a OGG...")
+
+				convertedBase64, newMime, err := convertWebMToOgg(input.Base64Content)
+				if err != nil {
+					utils.Respond(c, http.StatusInternalServerError, false, "Error convirtiendo audio", nil, err)
+					return
+				}
+
+				input.Base64Content = convertedBase64
+				input.MIMEType = newMime
+				input.FileName = "audio.ogg"
+			}
+
+			mediaID, err := uploadBase64File(
+				*channelIntegration.AppIdentifier,
+				*channelIntegration.AccessToken,
+				input.Base64Content,
+				input.MIMEType,
+				input.FileName,
+			)
+			if err != nil {
+				utils.Respond(c, http.StatusInternalServerError, false, "Error al subir audio", nil, err)
+				return
+			}
+
+			err = m.sendWhatsAppAudio(
+				*channelIntegration.AppIdentifier,
+				*channelIntegration.AccessToken,
+				*channelIntegration.SenderID,
+				mediaID,
+			)
+			if err != nil {
+				utils.Respond(c, http.StatusInternalServerError, false, "Error al enviar audio", nil, err)
+				return
+			}
 		}
 	}
 
@@ -413,6 +496,36 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 	m.hub.BroadcastJSON(channel, payload)
 
 	utils.Respond(c, http.StatusOK, true, "Mensaje enviado correctamente", input, nil)
+}
+
+func extractBase64(input string) (mime string, raw string) {
+	// Esperado: data:<mime>;base64,<contenido>
+	if !strings.HasPrefix(input, "data:") {
+		return "", input // no trae prefijo, devolver directo
+	}
+
+	// Separar MIME y contenido
+	parts := strings.SplitN(input, ",", 2)
+	if len(parts) != 2 {
+		return "", ""
+	}
+
+	header := parts[0] // data:application/pdf;base64
+	raw = normalizeBase64(parts[1])
+
+	// Extraer MIME
+	mime = strings.TrimPrefix(header, "data:")
+	mime = strings.TrimSuffix(mime, ";base64")
+
+	return mime, raw
+}
+
+func normalizeBase64(b64 string) string {
+	missing := len(b64) % 4
+	if missing > 0 {
+		b64 += strings.Repeat("=", 4-missing)
+	}
+	return b64
 }
 
 func (m *MessageEntry) AssignCaseToClient(c *gin.Context) {
@@ -835,6 +948,93 @@ func (m *MessageEntry) sendWhatsAppImage(phoneNumberID, accessToken, to, mediaID
 	return nil
 }
 
+func textProto(mime, filename string) textproto.MIMEHeader {
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, filename))
+	h.Set("Content-Type", mime)
+	return h
+}
+
+func uploadBase64File(appID, token, rawBase64, mime, fileName string) (string, error) {
+
+	decoded, err := base64.StdEncoding.DecodeString(rawBase64)
+	if err != nil {
+		return "", fmt.Errorf("invalid base64: %w", err)
+	}
+
+	uploadURL := fmt.Sprintf("https://graph.facebook.com/v24.0/%s/media", appID)
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// ---- Archivo con MIME real ----
+	part, err := writer.CreatePart(textProto(mime, fileName))
+	if err != nil {
+		return "", err
+	}
+	part.Write(decoded)
+
+	// ---- Campos obligatorios ----
+	writer.WriteField("messaging_product", "whatsapp")
+	writer.Close()
+
+	req, _ := http.NewRequest("POST", uploadURL, body)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+
+	var response struct {
+		ID string `json:"id"`
+	}
+
+	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
+		return "", err
+	}
+
+	if response.ID == "" {
+		return "", fmt.Errorf("file upload failed")
+	}
+
+	return response.ID, nil
+}
+func (m *MessageEntry) sendWhatsAppDocument(appID, token, recipient, mediaID, caption string) error {
+	url := fmt.Sprintf("https://graph.facebook.com/v24.0/%s/messages", appID)
+
+	payload := map[string]interface{}{
+		"messaging_product": "whatsapp",
+		"to":                recipient,
+		"type":              "document",
+		"document": map[string]interface{}{
+			"id":      mediaID,
+			"caption": caption,
+		},
+	}
+
+	b, _ := json.Marshal(payload)
+
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(b))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("error sending WhatsApp document: %s", string(bodyBytes))
+	}
+
+	return nil
+}
+
 // controllers/message_entry.go
 func (m *MessageEntry) AssignCaseToCampaign(c *gin.Context) {
 	var req models.AssignCaseToCampaignRequest
@@ -1102,4 +1302,109 @@ func strOrEmpty(s *string) string {
 		return *s
 	}
 	return ""
+}
+
+func (m *MessageEntry) sendWhatsAppAudio(appID, token, recipient, mediaID string) error {
+	url := fmt.Sprintf("https://graph.facebook.com/v24.0/%s/messages", appID)
+
+	payload := map[string]interface{}{
+		"messaging_product": "whatsapp",
+		"to":                recipient,
+		"type":              "audio",
+		"audio": map[string]interface{}{
+			"id": mediaID,
+		},
+	}
+
+	body, _ := json.Marshal(payload)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("error creando request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("error enviando request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	fmt.Println("📡 Respuesta WhatsApp AUDIO:", string(respBody))
+
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("error API (%d): %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
+func cleanBase64(input string) string {
+	// Remove prefix like: data:audio/webm;base64,
+	if strings.Contains(input, ",") {
+		parts := strings.SplitN(input, ",", 2)
+		input = parts[1]
+	}
+
+	// Remove invalid characters
+	re := regexp.MustCompile(`[^A-Za-z0-9+/=]`)
+	input = re.ReplaceAllString(input, "")
+
+	// Fix missing padding
+	if m := len(input) % 4; m != 0 {
+		input += strings.Repeat("=", 4-m)
+	}
+
+	return input
+}
+
+func convertWebMToOgg(b64 string) (string, string, error) {
+
+	// NORMALIZAR BASE64
+	clean := strings.ReplaceAll(b64, "\n", "")
+	clean = strings.ReplaceAll(clean, "\r", "")
+	clean = strings.ReplaceAll(clean, " ", "")
+	missing := len(clean) % 4
+	if missing > 0 {
+		clean += strings.Repeat("=", 4-missing)
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(clean)
+	if err != nil {
+		return "", "", fmt.Errorf("decode error: %w", err)
+	}
+
+	// Guardar archivo temporal
+	if err := os.WriteFile("tmp_in.webm", decoded, 0644); err != nil {
+		return "", "", err
+	}
+
+	// Forzar formato webm →
+	cmd := exec.Command("ffmpeg",
+		"-y",
+		"-f", "webm",
+		"-i", "tmp_in.webm",
+		"-c:a", "libopus",
+		"tmp_out.ogg",
+	)
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", "", fmt.Errorf("ffmpeg error: %v | stderr: %s", err, stderr.String())
+	}
+
+	// Leer ogg resultante
+	oggBytes, err := os.ReadFile("tmp_out.ogg")
+	if err != nil {
+		return "", "", err
+	}
+
+	oggBase64 := base64.StdEncoding.EncodeToString(oggBytes)
+
+	return oggBase64, "audio/ogg", nil
 }

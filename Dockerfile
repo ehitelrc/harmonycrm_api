@@ -1,6 +1,11 @@
 # Usa una imagen base ligera de Go
 FROM golang:alpine
 
+
+# Instalar ffmpeg desde los repos de Alpine
+RUN apk update && apk add --no-cache ffmpeg
+
+
 # Establece el directorio de trabajo en el contenedor
 WORKDIR /app
 
