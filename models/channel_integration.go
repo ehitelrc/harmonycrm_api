@@ -23,6 +23,8 @@ type ChannelIntegration struct {
 	IntegrationName string `json:"integration_name,omitempty"` // Campo calculado, no se mapea a la base de datos
 
 	DepartmentID *uint `json:"department_id,omitempty" gorm:"index"` // Índice para búsquedas rápidas por departamento
+
+	AnalyzeIncomingImages bool `json:"analyze_incoming_images" gorm:"default:false"` // Indica si se deben analizar imágenes entrantes
 }
 
 // Nombre explícito de la tabla (si tu esquema no usa pluralización)

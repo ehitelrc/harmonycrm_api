@@ -12,44 +12,87 @@ import (
 	"time"
 )
 
+type WhatsAppMediaMeta struct {
+	URL      string `json:"url"`
+	MimeType string `json:"mime_type"`
+	Sha256   string `json:"sha256"`
+	FileSize int    `json:"file_size"`
+}
+
 type WSMediaMessage struct{}
 
-func (c *WSMediaMessage) GetMediaData(url string, channel models.ViewChannelIntegration) (string, string, error) {
-	client := &http.Client{}
+// func (c *WSMediaMessage) GetMediaData(url string, channel models.ViewChannelIntegration) (string, string, error) {
+// 	client := &http.Client{}
+// 	req, err := http.NewRequest("GET", url, nil)
+// 	if err != nil {
+// 		return "", "", err
+// 	}
+// 	req.Header.Add("Content-Type", "application/json")
+
+// 	auth, err := c.GetAuth(channel.AccessToken)
+// 	if err != nil {
+// 		return "", "", err
+// 	}
+// 	req.Header.Add("Authorization", *auth)
+
+// 	res, err := client.Do(req)
+// 	if err != nil {
+// 		return "", "", err
+// 	}
+// 	defer res.Body.Close()
+
+// 	body, err := io.ReadAll(res.Body)
+// 	if err != nil {
+// 		return "", "", err
+// 	}
+
+// 	var responseData models.WhatsappImageData
+// 	if err := json.Unmarshal(body, &responseData); err != nil {
+// 		return "", "", fmt.Errorf("error deserializing JSON: %w", err)
+// 	}
+
+// 	data, err := c.GetMediaDataFromURL(responseData.URL, channel)
+// 	if err != nil {
+// 		return "", "", err
+// 	}
+
+//		return responseData.URL, data, nil
+//	}
+func (c *WSMediaMessage) GetMediaMetadata(mediaID string, channel models.ViewChannelIntegration) (*WhatsAppMediaMeta, error) {
+	url := fmt.Sprintf("https://graph.facebook.com/v24.0/%s", mediaID)
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
-	req.Header.Add("Content-Type", "application/json")
 
 	auth, err := c.GetAuth(channel.AccessToken)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 	req.Header.Add("Authorization", *auth)
 
-	res, err := client.Do(req)
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 	defer res.Body.Close()
 
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return "", "", err
+	if res.StatusCode >= 300 {
+		b, _ := io.ReadAll(res.Body)
+		return nil, fmt.Errorf("media metadata error %d: %s", res.StatusCode, string(b))
 	}
 
-	var responseData models.WhatsappImageData
-	if err := json.Unmarshal(body, &responseData); err != nil {
-		return "", "", fmt.Errorf("error deserializing JSON: %w", err)
+	var meta WhatsAppMediaMeta
+	if err := json.NewDecoder(res.Body).Decode(&meta); err != nil {
+		return nil, err
 	}
 
-	data, err := c.GetMediaDataFromURL(responseData.URL, channel)
-	if err != nil {
-		return "", "", err
+	if meta.URL == "" {
+		return nil, fmt.Errorf("media URL vacío desde WhatsApp")
 	}
 
-	return responseData.URL, data, nil
+	return &meta, nil
 }
 
 func (c *WSMediaMessage) GetMediaDataFromURL(url string, channel models.ViewChannelIntegration) (string, error) {
@@ -65,7 +108,6 @@ func (c *WSMediaMessage) GetMediaDataFromURL(url string, channel models.ViewChan
 	req.Header.Add("Authorization", *auth)
 
 	res, err := client.Do(req)
-	fmt.Println("Response status:", res.Status)
 
 	if err != nil {
 		return "", err

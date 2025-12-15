@@ -659,3 +659,16 @@ func (r *MessageRepository) SaveOutgoingMessageStatus(
 
 	return nil
 }
+
+func (r *MessageRepository) UpdateMediaContent(
+	messageID uint,
+	base64 string,
+	mime string,
+) error {
+	return config.DB.Model(&models.Message{}).
+		Where("id = ?", messageID).
+		Updates(map[string]interface{}{
+			"base64_content": base64,
+			"mime_type":      mime,
+		}).Error
+}

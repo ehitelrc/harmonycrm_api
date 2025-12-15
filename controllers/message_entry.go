@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"harmony_api/models"
 	"harmony_api/repository"
+	"harmony_api/services"
 	"harmony_api/utils"
 	"harmony_api/ws"
 	"io"
@@ -24,12 +25,32 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// type MessageEntry struct {
+// 	hub                    *ws.Hub
+// 	receiptAnalysisService *services.ReceiptAnalysisService
+// }
+
 type MessageEntry struct {
-	hub *ws.Hub
+	processor              *services.MessageProcessor
+	receiptAnalysisService *services.ReceiptAnalysisService
 }
 
-func NewMessageEntry(hub *ws.Hub) *MessageEntry {
-	return &MessageEntry{hub: hub}
+// func NewMessageEntry(hub *ws.Hub, ras *services.ReceiptAnalysisService) *MessageEntry {
+// 	return &MessageEntry{
+// 		hub:                    hub,
+// 		receiptAnalysisService: ras,
+// 	}
+// }
+
+func NewMessageEntry(
+	hub *ws.Hub,
+	ras *services.ReceiptAnalysisService,
+) *MessageEntry {
+
+	return &MessageEntry{
+		processor:              services.NewMessageProcessor(hub, ras),
+		receiptAnalysisService: ras,
+	}
 }
 
 type WSMessage struct {
@@ -38,45 +59,65 @@ type WSMessage struct {
 	Data   interface{} `json:"data"` // el mensaje recién guardado o un DTO
 }
 
+// func (m *MessageEntry) ReceiveMessageWebhook(c *gin.Context) {
+// 	var input models.IncomingMessage
+
+// 	// Leer el cuerpo sin procesar
+// 	rawData, _ := c.GetRawData()
+// 	fmt.Println("Raw JSON recibido:", string(rawData))
+
+// 	// Reinyectar el cuerpo para poder hacer el binding después de leerlo
+// 	c.Request.Body = io.NopCloser(bytes.NewBuffer(rawData))
+
+// 	if err := c.ShouldBindJSON(&input); err != nil {
+// 		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
+// 		return
+// 	}
+
+// 	repository :=
+// 		repository.MessageRepository{}
+
+// 	newMessage, err := repository.CreateMessage(input)
+// 	if err != nil {
+// 		utils.Respond(c, http.StatusInternalServerError, false, "Error al procesar el mensaje", nil, err)
+// 		return
+// 	}
+
+// 	// Broadcast WS (si tenemos case_id)
+// 	if newMessage.CaseID != 0 && m.hub != nil {
+// 		payload, _ := json.Marshal(WSMessage{
+// 			Type:   "new_message",
+// 			CaseID: uint(newMessage.CaseID),
+// 			Data:   newMessage, // o arma un DTO si prefieres
+// 		})
+// 		channel := "case:" + strconv.Itoa(int(newMessage.CaseID))
+// 		m.hub.BroadcastJSON(channel, payload)
+// 		if newMessage.AgentID != nil {
+// 			m.hub.BroadcastJSON("agent:"+strconv.Itoa(int(*newMessage.AgentID)), payload)
+// 		}
+// 	}
+
+// 	fmt.Println("Nuevo mensaje guardado con ID:", newMessage.ID)
+
+// 	utils.Respond(c, http.StatusOK, true, "Mensaje recibido correctamente", input, nil)
+
+// }
+
 func (m *MessageEntry) ReceiveMessageWebhook(c *gin.Context) {
 	var input models.IncomingMessage
-
-	// Leer el cuerpo sin procesar
-	rawData, _ := c.GetRawData()
-	fmt.Println("Raw JSON recibido:", string(rawData))
-
-	// Reinyectar el cuerpo para poder hacer el binding después de leerlo
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(rawData))
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
 		return
 	}
 
-	repository :=
-		repository.MessageRepository{}
-
-	newMessage, err := repository.CreateMessage(input)
+	newMessage, err := m.processor.ProcessIncomingMessage(input)
 	if err != nil {
-		utils.Respond(c, http.StatusInternalServerError, false, "Error al procesar el mensaje", nil, err)
+		utils.Respond(c, http.StatusInternalServerError, false, "Error procesando mensaje", nil, err)
 		return
 	}
 
-	// Broadcast WS (si tenemos case_id)
-	if newMessage.CaseID != 0 && m.hub != nil {
-		payload, _ := json.Marshal(WSMessage{
-			Type:   "new_message",
-			CaseID: uint(newMessage.CaseID),
-			Data:   newMessage, // o arma un DTO si prefieres
-		})
-		channel := "case:" + strconv.Itoa(int(newMessage.CaseID))
-		m.hub.BroadcastJSON(channel, payload)
-		if newMessage.AgentID != nil {
-			m.hub.BroadcastJSON("agent:"+strconv.Itoa(int(*newMessage.AgentID)), payload)
-		}
-	}
-
-	utils.Respond(c, http.StatusOK, true, "Mensaje recibido correctamente", input, nil)
+	utils.Respond(c, http.StatusOK, true, "Mensaje recibido", newMessage, nil)
 }
 
 // Get cases without agent assigned by company_id
@@ -164,131 +205,217 @@ func (m *MessageEntry) MarkMessagesAsReadByCaseID(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, true, "Mensajes marcados como leídos correctamente", nil, nil)
 }
 
+// func (m *MessageEntry) ReceiveImageMessageWebhookMedia(c *gin.Context) {
+// 	var input models.IncomingMessage
+
+// 	// Leer el cuerpo sin procesar
+// 	rawData, _ := c.GetRawData()
+// 	fmt.Println("Raw JSON recibido:", string(rawData))
+
+// 	// Reinyectar el cuerpo para poder hacer el binding después de leerlo
+// 	c.Request.Body = io.NopCloser(bytes.NewBuffer(rawData))
+
+// 	if err := c.ShouldBindJSON(&input); err != nil {
+// 		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
+// 		return
+// 	}
+
+// 	// Get channel integration
+// 	channelRepository := repository.ChannelRepository{}
+
+// 	channnel, err := channelRepository.GetChannelIntegrationByAppIdentifier(input.RecipientID)
+
+// 	if err != nil || channnel == nil {
+// 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener la integración del canal", nil, err)
+// 		return
+// 	}
+
+// 	wm_utils := utils.WSMediaMessage{}
+
+// 	mediaUrl := fmt.Sprintf("https://graph.facebook.com/v23.0/%s", input.MediaID)
+
+// 	_, resourceData, error := wm_utils.GetMediaData(mediaUrl, *channnel)
+
+// 	if error != nil {
+// 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener los datos del medio", nil, error)
+// 		return
+// 	}
+
+// 	completeData := "data:" + input.MIMEType + ";base64," + resourceData
+
+// 	input.Base64Content = completeData
+
+// 	msgRepo :=
+// 		repository.MessageRepository{}
+
+// 	newMessage, err := msgRepo.CreateMessage(input)
+// 	if err != nil {
+// 		utils.Respond(c, http.StatusInternalServerError, false, "Error al procesar el mensaje", nil, err)
+// 		return
+// 	}
+
+// 	// Broadcast WS (si tenemos case_id)
+// 	if newMessage.CaseID != 0 && m.hub != nil {
+// 		payload, _ := json.Marshal(WSMessage{
+// 			Type:   "new_message",
+// 			CaseID: uint(newMessage.CaseID),
+// 			Data:   input, // o arma un DTO si prefieres
+// 		})
+// 		channel := "case:" + strconv.Itoa(int(newMessage.CaseID))
+// 		m.hub.BroadcastJSON(channel, payload)
+// 	}
+
+// 	utils.Respond(c, http.StatusOK, true, "Mensaje recibido correctamente", input, nil)
+
+// 	// Guardar información del recibo
+
+// 	//---------------------------------------
+// 	// ANALIZAR RECIBO CON OCR + OPENAI
+// 	//---------------------------------------
+
+// 	if !channnel.AnalyzeIncomingImages {
+// 		fmt.Println("ℹ️ Análisis de imágenes entrantes deshabilitado para esta integración.")
+// 		return
+// 	}
+
+// 	go func(input models.IncomingMessage, newMessage *models.Message) {
+
+// 		// Base64 sin prefijo data:
+// 		b64 := input.Base64Content
+// 		if idx := strings.Index(b64, ","); idx != -1 {
+// 			b64 = b64[idx+1:]
+// 		}
+
+// 		// Obtener caseID
+// 		caseID := uint(newMessage.CaseID)
+
+// 		// Ejecutar OCR + IA
+// 		result, err := m.receiptAnalysisService.AnalyzeFromBase64(
+// 			c,
+// 			b64,
+// 			&caseID,
+// 			true, // es mensaje entrante
+// 		)
+// 		if err != nil {
+// 			fmt.Println("❌ Error analizando recibo:", err)
+// 			return
+// 		}
+
+// 		if result == nil {
+// 			fmt.Println("ℹ️ La imagen no es un recibo.")
+// 			return
+// 		}
+
+// 		// Guardar en la base de datos
+// 		receiptRepo := repository.NewReceiptRepository()
+
+// 		record, err := receiptRepo.SaveReceiptResult(result, caseID)
+// 		if err != nil {
+// 			fmt.Println("❌ Error guardando recibo:", err)
+// 			return
+// 		}
+
+// 		fmt.Println("✅ Recibo guardado con ID:", record.ID)
+
+// 	}(input, newMessage)
+// }
+
 func (m *MessageEntry) ReceiveImageMessageWebhookMedia(c *gin.Context) {
 	var input models.IncomingMessage
-
-	// Leer el cuerpo sin procesar
-	rawData, _ := c.GetRawData()
-	fmt.Println("Raw JSON recibido:", string(rawData))
-
-	// Reinyectar el cuerpo para poder hacer el binding después de leerlo
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(rawData))
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
 		return
 	}
 
-	// Get channel integration
-	channelRepository := repository.ChannelRepository{}
-
-	channnel, err := channelRepository.GetChannelIntegrationByAppIdentifier(input.RecipientID)
-
-	if err != nil || channnel == nil {
-		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener la integración del canal", nil, err)
-		return
-	}
-
-	wm_utils := utils.WSMediaMessage{}
-
-	mediaUrl := fmt.Sprintf("https://graph.facebook.com/v23.0/%s", input.MediaID)
-
-	_, resourceData, error := wm_utils.GetMediaData(mediaUrl, *channnel)
-
-	if error != nil {
-		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener los datos del medio", nil, error)
-		return
-	}
-
-	completeData := "data:" + input.MIMEType + ";base64," + resourceData
-
-	input.Base64Content = completeData
-
-	repository :=
-		repository.MessageRepository{}
-
-	newMessage, err := repository.CreateMessage(input)
+	newMessage, err := m.processor.ProcessIncomingMessage(input)
 	if err != nil {
-		utils.Respond(c, http.StatusInternalServerError, false, "Error al procesar el mensaje", nil, err)
+		utils.Respond(c, http.StatusInternalServerError, false, "Error procesando imagen", nil, err)
 		return
 	}
 
-	// Broadcast WS (si tenemos case_id)
-	if newMessage.CaseID != 0 && m.hub != nil {
-		payload, _ := json.Marshal(WSMessage{
-			Type:   "new_message",
-			CaseID: uint(newMessage.CaseID),
-			Data:   input, // o arma un DTO si prefieres
-		})
-		channel := "case:" + strconv.Itoa(int(newMessage.CaseID))
-		m.hub.BroadcastJSON(channel, payload)
-	}
-
-	utils.Respond(c, http.StatusOK, true, "Mensaje recibido correctamente", input, nil)
+	utils.Respond(c, http.StatusOK, true, "Imagen recibida", newMessage, nil)
 }
+
+// func (m *MessageEntry) ReceiveAudioMessageWebhookMedia(c *gin.Context) {
+// 	var input models.IncomingMessage
+
+// 	// Leer el cuerpo sin procesar
+// 	rawData, _ := c.GetRawData()
+// 	fmt.Println("Raw JSON recibido:", string(rawData))
+
+// 	// Reinyectar el cuerpo para poder hacer el binding después de leerlo
+// 	c.Request.Body = io.NopCloser(bytes.NewBuffer(rawData))
+
+// 	if err := c.ShouldBindJSON(&input); err != nil {
+// 		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
+// 		return
+// 	}
+
+// 	// Get channel integration
+// 	channelRepository := repository.ChannelRepository{}
+
+// 	channnel, err := channelRepository.GetChannelIntegrationByAppIdentifier(input.RecipientID)
+
+// 	if err != nil || channnel == nil {
+// 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener la integración del canal", nil, err)
+// 		return
+// 	}
+
+// 	wm_utils := utils.WSMediaMessage{}
+
+// 	mediaUrl := fmt.Sprintf("https://graph.facebook.com/v23.0/%s", input.MediaID)
+
+// 	_, resourceData, error := wm_utils.GetMediaData(mediaUrl, *channnel)
+
+// 	if error != nil {
+// 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener los datos del medio", nil, error)
+// 		return
+// 	}
+
+// 	completeData := "data:" + input.MIMEType + ";base64," + resourceData
+
+// 	input.Base64Content = completeData
+
+// 	repository :=
+// 		repository.MessageRepository{}
+
+// 	newMessage, err := repository.CreateMessage(input)
+
+// 	if err != nil {
+// 		utils.Respond(c, http.StatusInternalServerError, false, "Error al procesar el mensaje", nil, err)
+// 		return
+// 	}
+
+// 	// Broadcast WS (si tenemos case_id)
+// 	if newMessage.CaseID != 0 && m.hub != nil {
+// 		payload, _ := json.Marshal(WSMessage{
+// 			Type:   "new_message",
+// 			CaseID: uint(newMessage.CaseID),
+// 			Data:   input, // o arma un DTO si prefieres
+// 		})
+// 		channel := "case:" + strconv.Itoa(int(newMessage.CaseID))
+// 		m.hub.BroadcastJSON(channel, payload)
+// 	}
+
+// 	utils.Respond(c, http.StatusOK, true, "Mensaje recibido correctamente", input, nil)
+// }
 
 func (m *MessageEntry) ReceiveAudioMessageWebhookMedia(c *gin.Context) {
 	var input models.IncomingMessage
 
-	// Leer el cuerpo sin procesar
-	rawData, _ := c.GetRawData()
-	fmt.Println("Raw JSON recibido:", string(rawData))
-
-	// Reinyectar el cuerpo para poder hacer el binding después de leerlo
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(rawData))
-
 	if err := c.ShouldBindJSON(&input); err != nil {
 		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
 		return
 	}
 
-	// Get channel integration
-	channelRepository := repository.ChannelRepository{}
-
-	channnel, err := channelRepository.GetChannelIntegrationByAppIdentifier(input.RecipientID)
-
-	if err != nil || channnel == nil {
-		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener la integración del canal", nil, err)
-		return
-	}
-
-	wm_utils := utils.WSMediaMessage{}
-
-	mediaUrl := fmt.Sprintf("https://graph.facebook.com/v23.0/%s", input.MediaID)
-
-	_, resourceData, error := wm_utils.GetMediaData(mediaUrl, *channnel)
-
-	if error != nil {
-		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener los datos del medio", nil, error)
-		return
-	}
-
-	completeData := "data:" + input.MIMEType + ";base64," + resourceData
-
-	input.Base64Content = completeData
-
-	repository :=
-		repository.MessageRepository{}
-
-	newMessage, err := repository.CreateMessage(input)
-
+	newMessage, err := m.processor.ProcessIncomingMessage(input)
 	if err != nil {
-		utils.Respond(c, http.StatusInternalServerError, false, "Error al procesar el mensaje", nil, err)
+		utils.Respond(c, http.StatusInternalServerError, false, "Error procesando audio", nil, err)
 		return
 	}
 
-	// Broadcast WS (si tenemos case_id)
-	if newMessage.CaseID != 0 && m.hub != nil {
-		payload, _ := json.Marshal(WSMessage{
-			Type:   "new_message",
-			CaseID: uint(newMessage.CaseID),
-			Data:   input, // o arma un DTO si prefieres
-		})
-		channel := "case:" + strconv.Itoa(int(newMessage.CaseID))
-		m.hub.BroadcastJSON(channel, payload)
-	}
-
-	utils.Respond(c, http.StatusOK, true, "Mensaje recibido correctamente", input, nil)
+	utils.Respond(c, http.StatusOK, true, "Audio recibido", newMessage, nil)
 }
 
 func (m *MessageEntry) GetActiveCasesByAgentID(c *gin.Context) {
@@ -487,13 +614,13 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 
 	// Consumir
 
-	payload, _ := json.Marshal(WSMessage{
-		Type:   "new_message",
-		CaseID: uint(input.CaseID),
-		Data:   input, // o arma un DTO si prefieres
-	})
-	channel := "case:" + strconv.Itoa(int(input.CaseID))
-	m.hub.BroadcastJSON(channel, payload)
+	// payload, _ := json.Marshal(WSMessage{
+	// 	Type:   "new_message",
+	// 	CaseID: uint(input.CaseID),
+	// 	Data:   input, // o arma un DTO si prefieres
+	// })
+	// channel := "case:" + strconv.Itoa(int(input.CaseID))
+	// m.hub.BroadcastJSON(channel, payload)
 
 	utils.Respond(c, http.StatusOK, true, "Mensaje enviado correctamente", input, nil)
 }

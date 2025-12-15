@@ -1,6 +1,10 @@
 package routes
 
 import (
+	"harmony_api/controllers"
+	"harmony_api/providers"
+	"harmony_api/repository"
+	"harmony_api/services"
 	"harmony_api/ws"
 	"path/filepath"
 
@@ -8,6 +12,27 @@ import (
 )
 
 func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
+
+	// Crear OpenAIProvider
+	openAIProvider, err := providers.NewOpenAIProvider("gpt-4o-mini")
+	if err != nil {
+		panic(err)
+	}
+
+	googleOCR, _ := providers.NewGoogleOCR("IA/harmonyvpocr-07dfbad813ad.json")
+	ocrService := services.NewOCRService(googleOCR)
+	ocrController := controllers.NewOCRController(ocrService)
+
+	// Receipt State Management
+	receiptRepo := repository.NewReceiptRepository()
+	receiptStateService := services.NewReceiptStateService(receiptRepo)
+	receiptStateController := controllers.NewReceiptStateController(receiptStateService)
+
+	// Crear ReceiptAnalysisService
+	receiptAnalysisService := services.NewReceiptAnalysisService(ocrService, openAIProvider, repository.NewReceiptRepository())
+
+	// Crear controller
+	receiptAnalysisController := controllers.NewReceiptAnalysisController(receiptAnalysisService)
 
 	// Obtener el path absoluto desde la raíz del proyecto (subiendo desde cmd/)
 	rootDir, _ := filepath.Abs(filepath.Join(".", ".."))
@@ -17,7 +42,7 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 	api := r.Group("/api")
 
 	// Inicializar rutas de mensajes
-	InitializeMessage(*api, hub)
+	InitializeMessage(*api, hub, receiptAnalysisService)
 
 	// Inicializar rutas de compañías
 	RegisterCompanyRoutes(api)
@@ -86,12 +111,19 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 
 	RegristerCustomFieldRoutes(api)
 
-	RegisterWhatsappWebHookRoutes(api, hub)
+	RegisterWhatsappWebHookRoutes(api, hub, receiptAnalysisService)
+
+	OCRRoutes(api, ocrController)
+
+	// Registrar rutas
+	ReceiptAnalysisRoutes(api, receiptAnalysisController)
+
+	ReceiptStateRoutes(api, receiptStateController)
 
 	// Endpoint de verificación de estado
 	api.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
-			"status": "API is online V 2.0.7",
+			"status": "API is online V 2.0.9",
 		})
 	})
 

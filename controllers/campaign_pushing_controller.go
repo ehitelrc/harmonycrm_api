@@ -14,6 +14,7 @@ import (
 )
 
 type CampaignPushingController struct {
+	caseRepo *repository.MessageRepository
 	campRepo *repository.ChannelRepository
 	repo     *repository.CampaignPushingRepository
 	hub      *ws.Hub
@@ -64,10 +65,22 @@ func (ctrl *CampaignPushingController) SendWhatsappTemplateMessage(c *gin.Contex
 		return
 	}
 
-	err = ctrl.repo.SendWhatsappTemplateMessage(templateID, caseID)
+	newMessage, err := ctrl.repo.SendWhatsappTemplateMessage(templateID, caseID)
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error sending WhatsApp template message", nil, err)
 		return
+	}
+
+	// Broadcast WS (si tenemos case_id)
+	if caseID != 0 && ctrl.hub != nil {
+		payload, _ := json.Marshal(WSMessage{
+			Type:   "new_message",
+			CaseID: uint(caseID),
+			Data:   newMessage, // o arma un DTO si prefieres
+		})
+		channel := "case:" + strconv.Itoa(int(caseID))
+		ctrl.hub.BroadcastJSON(channel, payload)
+
 	}
 
 	utils.Respond(c, http.StatusOK, true, "WhatsApp template message sent successfully", nil, nil)
@@ -96,8 +109,6 @@ func (ctrl *CampaignPushingController) CreateNewWhatsappCaseFromTemplate(c *gin.
 		})
 		channel := "case:" + strconv.Itoa(int(caseID))
 		ctrl.hub.BroadcastJSON(channel, payload)
-
-		ctrl.hub.BroadcastJSON("agent:"+strconv.Itoa(int(*&requestBody.AgentID)), payload)
 
 	}
 

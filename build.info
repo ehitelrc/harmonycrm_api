@@ -75,3 +75,8 @@ make up-messages
 
 ## ver imagenes con compose
 docker compose ps -a
+
+
+whatsapp_verify_123
+ https://harmony.ngrok.dev/api/webhook/whatsapp
+https://api.harmony.vpcrapps.com/api/webhook/whatsapp

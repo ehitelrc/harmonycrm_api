@@ -49,9 +49,14 @@ func ServeWS(h *Hub) gin.HandlerFunc {
 
 		// Writer goroutine
 		go func() {
+			defer func() {
+				h.unregister <- client
+				_ = client.Conn.Close()
+			}()
+
 			for msg := range client.Send {
 				if err := client.Conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-					break
+					return
 				}
 			}
 		}()

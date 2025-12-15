@@ -62,20 +62,18 @@ func (h *Hub) Run() {
 		case m := <-h.broadcast:
 			h.mu.RLock()
 			set := h.clients[m.Channel]
+
 			for cli := range set {
 				select {
 				case cli.Send <- m.Payload:
 				default:
-					// cliente congestionado -> desconectar
+					// ⚠️ NO cerrar aquí, delega al flujo normal
 					h.mu.RUnlock()
-					h.mu.Lock()
-					delete(set, cli)
-					close(cli.Send)
-					_ = cli.Conn.Close()
-					h.mu.Unlock()
+					h.unregister <- cli
 					h.mu.RLock()
 				}
 			}
+
 			h.mu.RUnlock()
 		}
 	}

@@ -2,14 +2,15 @@ package routes
 
 import (
 	"harmony_api/controllers"
+	"harmony_api/services"
 	"harmony_api/ws"
 
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterWhatsappWebHookRoutes(r *gin.RouterGroup, hub *ws.Hub) {
+func RegisterWhatsappWebHookRoutes(r *gin.RouterGroup, hub *ws.Hub, ras *services.ReceiptAnalysisService) {
 
-	webhook := controllers.NewWhatsAppWebhookController(hub)
+	webhook := controllers.NewWhatsAppWebhookController(hub, ras)
 
 	r.GET("/webhook/whatsapp", webhook.Verify)
 	r.POST("/webhook/whatsapp", webhook.Receive)

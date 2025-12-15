@@ -2,14 +2,15 @@ package routes
 
 import (
 	"harmony_api/controllers"
+	"harmony_api/services"
 	"harmony_api/ws"
 
 	"github.com/gin-gonic/gin"
 )
 
-func InitializeMessage(r gin.RouterGroup, hub *ws.Hub) {
+func InitializeMessage(r gin.RouterGroup, hub *ws.Hub, receiptAnalysisService *services.ReceiptAnalysisService) {
 
-	controller := controllers.NewMessageEntry(hub)
+	controller := controllers.NewMessageEntry(hub, receiptAnalysisService)
 
 	api := r.Group("/messages")
 

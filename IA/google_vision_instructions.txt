@@ -1,0 +1,2 @@
+
+export GOOGLE_APPLICATION_CREDENTIALS="/IA/harmonyvpocr-07dfbad813ad.json"
