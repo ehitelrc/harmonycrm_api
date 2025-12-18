@@ -253,6 +253,75 @@ func (r *MessageRepository) GetOpenCasesByCompanyAndDepartmentID(companyID int, 
 	return openCases, err
 }
 
+// Open cases by company and department with pagination
+func (r *MessageRepository) GetOpenCasesByCompanyAndDepartmentIDPaged(
+	companyID int,
+	departmentID int,
+	limit int,
+	offset int,
+) ([]models.CaseWithChannel, int64, error) {
+
+	var cases []models.CaseWithChannel
+	var total int64
+
+	baseQuery := config.DB.
+		Model(&models.CaseWithChannel{}).
+		Where(
+			"company_id = ? AND department_id = ? AND status = ?",
+			companyID,
+			departmentID,
+			"open",
+		)
+
+	// total (sin paginar)
+	if err := baseQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// página actual
+	if err := baseQuery.
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&cases).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return cases, total, nil
+}
+
+func (r *MessageRepository) GetOpenCasesStatsByCompanyAndDepartment(
+	companyID int,
+	departmentID int,
+) (total int64, assigned int64, unassigned int64, err error) {
+
+	base := config.DB.
+		Table("cases").
+		Where(
+			"company_id = ? AND department_id = ? AND status = ?",
+			companyID,
+			departmentID,
+			"open",
+		)
+
+	// total
+	if err = base.Count(&total).Error; err != nil {
+		return
+	}
+
+	// asignados
+	if err = base.
+		Where("agent_id IS NOT NULL").
+		Count(&assigned).Error; err != nil {
+		return
+	}
+
+	// no asignados
+	unassigned = total - assigned
+
+	return
+}
+
 // Mark messages as read by case_id
 func (r *MessageRepository) MarkMessagesAsReadByCaseID(caseID string) error {
 	err := config.DB.Model(&models.Message{}).

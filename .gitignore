@@ -1,0 +1,30 @@
+# ========================
+# Environment variables
+# ========================
+.env
+.env.*
+
+# ========================
+# Secrets / credentials
+# ========================
+*.json
+IA/*.json
+
+# ========================
+# Google Cloud
+# ========================
+**/service-account*.json
+**/credentials*.json
+
+# ========================
+# OS / Editor
+# ========================
+.DS_Store
+.idea/
+.vscode/
+
+# ========================
+# Go build artifacts
+# ========================
+bin/
+tmp/

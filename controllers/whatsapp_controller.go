@@ -183,6 +183,10 @@ func (w *WhatsAppWebhookController) ReceiveManual(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, true, "Mensaje reprocesado correctamente", newMessage, nil)
+
+	// 🔄 Refresh MV async
+	mv := services.NewCaseMVRefreshService()
+	mv.RefreshOnEvent("whatsapp_message_manual")
 }
 
 // POST: Recibir mensaje desde Meta
@@ -254,6 +258,9 @@ func (w *WhatsAppWebhookController) Receive(c *gin.Context) {
 		utils.Respond(c, http.StatusOK, true, "Tipo de mensaje no soportado aún", incoming, nil)
 	}
 
+	// 🔄 Refresh MV async
+	mv := services.NewCaseMVRefreshService()
+	mv.RefreshOnEvent("whatsapp_message")
 }
 
 // func (w *WhatsAppWebhookController) forwardTextMessage(c *gin.Context, input *models.IncomingMessage) {

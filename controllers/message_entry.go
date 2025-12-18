@@ -118,6 +118,10 @@ func (m *MessageEntry) ReceiveMessageWebhook(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, true, "Mensaje recibido", newMessage, nil)
+
+	// 🔄 Refresh MV async
+	mv := services.NewCaseMVRefreshService()
+	mv.RefreshOnEvent("whatsapp_message")
 }
 
 // Get cases without agent assigned by company_id
@@ -193,6 +197,133 @@ func (m *MessageEntry) GetOpenCasesByCompanyAndDepartmentID(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, true, "Casos abiertos obtenidos correctamente!", openCases, nil)
 }
 
+func (m *MessageEntry) GetOpenCasesByCompanyAndDepartmentIDV2(c *gin.Context) {
+
+	companyID, err := strconv.Atoi(c.Param("company_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+
+	departmentID, err := strconv.Atoi(c.Param("department_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "department_id inválido", nil, err)
+		return
+	}
+
+	// query params
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+
+	if limit <= 0 {
+		limit = 50
+	}
+	if page <= 0 {
+		page = 1
+	}
+
+	offset := (page - 1) * limit
+
+	repo := repository.MessageRepository{}
+	items, total, err := repo.GetOpenCasesByCompanyAndDepartmentIDPaged(
+		companyID,
+		departmentID,
+		limit,
+		offset,
+	)
+
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener los casos abiertos (v2)", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Casos abiertos (v2)", gin.H{
+		"items": items,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	}, nil)
+}
+
+func (m *MessageEntry) GetOpenCasesStatsByCompanyAndDepartmentV2(c *gin.Context) {
+
+	companyID, err := strconv.Atoi(c.Param("company_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "company_id inválido", nil, err)
+		return
+	}
+
+	departmentID, err := strconv.Atoi(c.Param("department_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "department_id inválido", nil, err)
+		return
+	}
+
+	repo := repository.MessageRepository{}
+	total, assigned, unassigned, err :=
+		repo.GetOpenCasesStatsByCompanyAndDepartment(companyID, departmentID)
+
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error obteniendo stats", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Stats de casos abiertos (v2)", gin.H{
+		"total_open": total,
+		"assigned":   assigned,
+		"unassigned": unassigned,
+	}, nil)
+}
+
+// Materialized
+func (m *MessageEntry) GetOpenCasesMV(c *gin.Context) {
+	companyID, _ := strconv.Atoi(c.Param("company_id"))
+	departmentID, _ := strconv.Atoi(c.Param("department_id"))
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+
+	if page < 1 {
+		page = 1
+	}
+
+	offset := (page - 1) * limit
+
+	fmt.Printf(
+		"[MV] company=%d dept=%d limit=%d offset=%d page=%d\n",
+		companyID, departmentID, limit, offset, page,
+	)
+
+	repo := repository.MessageRepository{}
+	cases, err := repo.GetOpenCasesMV(
+		uint(companyID),
+		uint(departmentID),
+		limit,
+		offset,
+	)
+
+	if err != nil {
+		utils.Respond(c, 500, false, "Error obteniendo casos (MV)", nil, err)
+		return
+	}
+
+	utils.Respond(c, 200, true, "Casos obtenidos (MV)", cases, nil)
+}
+
+func (m *MessageEntry) GetCaseStats(c *gin.Context) {
+	companyID, _ := strconv.Atoi(c.Param("company_id"))
+	departmentID, _ := strconv.Atoi(c.Param("department_id"))
+
+	repo := repository.MessageRepository{}
+	stats, err := repo.GetCaseStats(uint(companyID), uint(departmentID))
+	if err != nil {
+		utils.Respond(c, 500, false, "Error obteniendo stats", nil, err)
+		return
+	}
+
+	utils.Respond(c, 200, true, "Stats obtenidas", stats, nil)
+}
+
 // MarkMessagesAsReadByCaseID
 func (m *MessageEntry) MarkMessagesAsReadByCaseID(c *gin.Context) {
 	caseID := c.Param("case_id")
@@ -203,6 +334,7 @@ func (m *MessageEntry) MarkMessagesAsReadByCaseID(c *gin.Context) {
 		return
 	}
 	utils.Respond(c, http.StatusOK, true, "Mensajes marcados como leídos correctamente", nil, nil)
+
 }
 
 // func (m *MessageEntry) ReceiveImageMessageWebhookMedia(c *gin.Context) {
@@ -623,6 +755,10 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 	// m.hub.BroadcastJSON(channel, payload)
 
 	utils.Respond(c, http.StatusOK, true, "Mensaje enviado correctamente", input, nil)
+
+	// 🔄 Refresh MV async
+	mv := services.NewCaseMVRefreshService()
+	mv.RefreshOnEvent("whatsapp_messag_send")
 }
 
 func extractBase64(input string) (mime string, raw string) {
@@ -1184,6 +1320,10 @@ func (m *MessageEntry) AssignCaseToCampaign(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, true, "Caso asignado a la campaña correctamente", nil, nil)
+
+	// 🔄 Refresh MV async
+	mv := services.NewCaseMVRefreshService()
+	mv.RefreshOnEvent("whatsapp_message_assign_campaign")
 }
 
 func (m *MessageEntry) AssignCaseToDepartment(c *gin.Context) {
@@ -1207,6 +1347,10 @@ func (m *MessageEntry) AssignCaseToDepartment(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, true, "Caso asignado al departamento correctamente", nil, nil)
+
+	// 🔄 Refresh MV async
+	mv := services.NewCaseMVRefreshService()
+	mv.RefreshOnEvent("whatsapp_message_assign_department")
 }
 
 func (m *MessageEntry) AssignCaseToAgent(c *gin.Context) {
@@ -1230,6 +1374,10 @@ func (m *MessageEntry) AssignCaseToAgent(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, true, "Caso asignado al agente correctamente", nil, nil)
+
+	// 🔄 Refresh MV async
+	mv := services.NewCaseMVRefreshService()
+	mv.RefreshOnEvent("whatsapp_message_assign_agent")
 }
 
 // GetCurrentCaseFunnel
@@ -1336,6 +1484,10 @@ func (m *MessageEntry) CloseCase(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, true, "Caso cerrado correctamente", nil, nil)
+
+	// 🔄 Refresh MV async
+	mv := services.NewCaseMVRefreshService()
+	mv.RefreshOnEvent("whatsapp_message_close_case")
 }
 
 //api.POST("/entry/cancel_case/:case_id", controller.CancelCase)

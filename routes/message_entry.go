@@ -74,6 +74,25 @@ func InitializeMessage(r gin.RouterGroup, hub *ws.Hub, receiptAnalysisService *s
 	// Open cases by company_id and department_id
 	api.GET("/entry/open_cases/company/:company_id/department/:department_id", controller.GetOpenCasesByCompanyAndDepartmentID)
 
+	api.GET("/v2/entry/open_cases/company/:company_id/department/:department_id", controller.GetOpenCasesByCompanyAndDepartmentIDV2)
+
+	api.GET(
+		"/v2/entry/open_cases/stats/company/:company_id/department/:department_id",
+		controller.GetOpenCasesStatsByCompanyAndDepartmentV2,
+	)
+
+	api.GET(
+		"/v2/entry/open_cases_mv/company/:company_id/department/:department_id",
+		controller.GetOpenCasesMV,
+	)
+
+	api.GET(
+		"/v2/entry/stats/company/:company_id/department/:department_id",
+		controller.GetCaseStats,
+	)
+
+	//
+
 	// Mark messages as read by case_id
 	api.PUT("/entry/mark_messages_read/case/:case_id", controller.MarkMessagesAsReadByCaseID)
 

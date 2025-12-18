@@ -51,3 +51,35 @@ type CaseWithChannel struct {
 func (CaseWithChannel) TableName() string {
 	return "vw_cases_with_channels" // nombre de la VISTA
 }
+
+type CaseWithChannelMV struct {
+	CaseID             uint `gorm:"column:case_id"`
+	ClientID           *uint
+	ClientName         *string
+	CampaignID         *uint
+	CompanyID          uint
+	DepartmentID       uint
+	AgentID            *uint
+	AgentAssigned      bool
+	AgentFullName      *string
+	FunnelID           *uint
+	FunnelStage        *int
+	Status             string
+	ChannelID          uint
+	ChannelCode        string
+	ChannelName        string
+	IntegrationName    *string
+	StartedAt          *time.Time
+	ClosedAt           *time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	SenderID           string
+	LastMessagePreview *string
+	LastMessageAt      *time.Time
+	ClientMessages     int64
+	UnreadCount        int64
+}
+
+func (CaseWithChannelMV) TableName() string {
+	return "mv_cases_with_channels"
+}
