@@ -1,0 +1,4 @@
+WHATSAPP_VERIFY_TOKEN=whatsapp_verify_123
+MESSENGER_VERIFY_TOKEN=messenger_verify_123
+PUBLIC_BASE_URL=https://api.harmony.vpcrapps.com
+OPENAI_API_KEY=your_openai_api_key_here
