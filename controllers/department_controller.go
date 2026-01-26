@@ -21,11 +21,20 @@ func NewDepartmentController() *DepartmentController {
 }
 
 func (c *DepartmentController) GetAll(ctx *gin.Context) {
+
+	if cached, found := utils.GetDepartmentsAllFromCache(); found {
+		utils.Respond(ctx, http.StatusOK, true, "Lista de departamentos (cache)", cached, nil)
+		return
+	}
+
 	departments, err := c.repo.GetAll()
 	if err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener departamentos", nil, err)
 		return
 	}
+
+	utils.CacheDepartmentsAll(departments)
+
 	utils.Respond(ctx, http.StatusOK, true, "Lista de departamentos", departments, nil)
 }
 
@@ -36,14 +45,22 @@ func (c *DepartmentController) GetByCompany(ctx *gin.Context) {
 		return
 	}
 
+	if cached, found := utils.GetDepartmentsByCompanyFromCache(uint(companyID)); found {
+		utils.Respond(ctx, http.StatusOK, true, "Departamentos encontrados (cache)", cached, nil)
+		return
+	}
+
 	departments, err := c.repo.GetByCompanyID(uint(companyID))
 	if err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener departamentos", nil, err)
 		return
 	}
 
+	utils.CacheDepartmentsByCompany(uint(companyID), departments)
+
 	utils.Respond(ctx, http.StatusOK, true, "Departamentos encontrados", departments, nil)
 }
+
 func (c *DepartmentController) GetByCompanyAndUser(ctx *gin.Context) {
 	companyID, err := strconv.Atoi(ctx.Param("company_id"))
 	if err != nil {
@@ -57,11 +74,18 @@ func (c *DepartmentController) GetByCompanyAndUser(ctx *gin.Context) {
 		return
 	}
 
+	if cached, found := utils.GetDepartmentsByCompanyAndUserFromCache(uint(companyID), uint(userID)); found {
+		utils.Respond(ctx, http.StatusOK, true, "Departamentos encontrados (cache)", cached, nil)
+		return
+	}
+
 	departments, err := c.repo.GetByCompanyAndUserID(uint(companyID), uint(userID))
 	if err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener departamentos", nil, err)
 		return
 	}
+
+	utils.CacheDepartmentsByCompanyAndUser(uint(companyID), uint(userID), departments)
 
 	utils.Respond(ctx, http.StatusOK, true, "Departamentos encontrados", departments, nil)
 }
@@ -73,11 +97,18 @@ func (c *DepartmentController) GetByID(ctx *gin.Context) {
 		return
 	}
 
+	if cached, found := utils.GetDepartmentByIDFromCache(uint(id)); found {
+		utils.Respond(ctx, http.StatusOK, true, "Departamento encontrado (cache)", cached, nil)
+		return
+	}
+
 	dept, err := c.repo.GetByID(uint(id))
 	if err != nil {
 		utils.Respond(ctx, http.StatusNotFound, false, "Departamento no encontrado", nil, err)
 		return
 	}
+
+	utils.CacheDepartmentByID(uint(id), dept)
 
 	utils.Respond(ctx, http.StatusOK, true, "Departamento encontrado", dept, nil)
 }
@@ -94,6 +125,9 @@ func (c *DepartmentController) Create(ctx *gin.Context) {
 		return
 	}
 
+	utils.InvalidateDepartmentsCache()
+	utils.InvalidateDepartmentByID(dept.ID)
+
 	utils.Respond(ctx, http.StatusCreated, true, "Departamento creado correctamente", dept, nil)
 }
 
@@ -109,6 +143,9 @@ func (c *DepartmentController) Update(ctx *gin.Context) {
 		return
 	}
 
+	utils.InvalidateDepartmentsCache()
+	utils.InvalidateDepartmentByID(dept.ID)
+
 	utils.Respond(ctx, http.StatusOK, true, "Departamento actualizado correctamente", dept, nil)
 }
 
@@ -123,6 +160,9 @@ func (c *DepartmentController) Delete(ctx *gin.Context) {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al eliminar departamento", nil, err)
 		return
 	}
+
+	utils.InvalidateDepartmentsCache()
+	utils.InvalidateDepartmentByID(uint(id))
 
 	utils.Respond(ctx, http.StatusOK, true, "Departamento eliminado correctamente", nil, nil)
 }

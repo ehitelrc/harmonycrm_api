@@ -120,6 +120,10 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 
 	ReceiptStateRoutes(api, receiptStateController)
 
+	RegisterMessengerWebHookRoutes(api, hub, receiptAnalysisService)
+
+	r.Static("/public", "./public")
+
 	// Endpoint de verificación de estado
 	api.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{

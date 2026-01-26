@@ -134,3 +134,122 @@ func (r *ClientRepository) CreateLead(lead *models.LeadRequest) error {
 
 	return tx.Commit().Error
 }
+
+// repository/client_repository.go
+func (r *ClientRepository) GetClientsWithDuplicatePhones() ([]models.Client, error) {
+	var rows []models.Client
+
+	err := config.DB.
+		Where(`
+			phone IN (
+				SELECT phone
+				FROM clients
+				WHERE phone IS NOT NULL
+				  AND TRIM(phone) <> ''
+				GROUP BY phone
+				HAVING COUNT(*) > 1
+			)
+		`).
+		Order("phone ASC, id ASC").
+		Find(&rows).Error
+
+	return rows, err
+}
+
+// repository/client_repository.go
+func (r *ClientRepository) GetDuplicatePhonesDTO() ([]models.DuplicatePhoneGroupDTO, error) {
+
+	type row struct {
+		ID            uint
+		ExternalID    *string
+		FullName      *string
+		Email         *string
+		Phone         *string
+		CreatedAt     string
+		UpdatedAt     string
+		CountryID     *uint
+		ProvinceID    *uint
+		CantonID      *uint
+		DistrictID    *uint
+		AddressDetail *string
+		PostalCode    *string
+		IsCitizen     bool
+	}
+
+	var rows []row
+
+	query := `
+		SELECT *
+		FROM clients
+		WHERE phone IN (
+			SELECT phone
+			FROM clients
+			WHERE phone IS NOT NULL
+			  AND TRIM(phone) <> ''
+			GROUP BY phone
+			HAVING COUNT(*) > 1
+		)
+		ORDER BY phone, id
+	`
+
+	if err := config.DB.Raw(query).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	// Agrupar por teléfono
+	groupMap := make(map[string]*models.DuplicatePhoneGroupDTO)
+
+	for _, r := range rows {
+		if r.Phone == nil {
+			continue
+		}
+
+		grp, ok := groupMap[*r.Phone]
+		if !ok {
+			grp = &models.DuplicatePhoneGroupDTO{
+				Phone:   *r.Phone,
+				Clients: []models.ClientDTO{},
+			}
+			groupMap[*r.Phone] = grp
+		}
+
+		grp.Clients = append(grp.Clients, models.ClientDTO{
+			ID:            r.ID,
+			ExternalID:    r.ExternalID,
+			FullName:      r.FullName,
+			Email:         r.Email,
+			Phone:         r.Phone,
+			CreatedAt:     r.CreatedAt,
+			UpdatedAt:     r.UpdatedAt,
+			CountryID:     r.CountryID,
+			ProvinceID:    r.ProvinceID,
+			CantonID:      r.CantonID,
+			DistrictID:    r.DistrictID,
+			AddressDetail: r.AddressDetail,
+			PostalCode:    r.PostalCode,
+			IsCitizen:     r.IsCitizen,
+		})
+	}
+
+	// Convertir map → slice + count
+	out := make([]models.DuplicatePhoneGroupDTO, 0, len(groupMap))
+	for _, g := range groupMap {
+		g.Count = len(g.Clients)
+		out = append(out, *g)
+	}
+
+	return out, nil
+}
+
+// repository/client_repository.go
+
+func (r *ClientRepository) GetByExternalID(externalID string) ([]models.Client, error) {
+	var rows []models.Client
+
+	err := config.DB.
+		Where("external_id = ?", externalID).
+		Order("id ASC").
+		Find(&rows).Error
+
+	return rows, err
+}

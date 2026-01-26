@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"harmony_api/models"
 	"harmony_api/repository"
+	"harmony_api/utils"
 	"harmony_api/ws"
 	"strconv"
 )
@@ -73,6 +74,9 @@ func (p *MessageProcessor) ProcessIncomingMessage(
 	if err != nil {
 		return nil, err
 	}
+
+	// 🔴 AQUÍ ES EL LUGAR EXACTO
+	utils.InvalidateFirstMessagesByCase(uint(newMessage.CaseID))
 
 	// 2️⃣ Emitir WS (ÚNICO lugar)
 	p.broadcast(newMessage)

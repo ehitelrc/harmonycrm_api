@@ -19,4 +19,10 @@ func RegisterClientRoutes(r *gin.RouterGroup) {
 	r.POST("/clients/leads", ctrl.CreateLead)
 
 	r.GET("/clients/custom_fields/:entity_id", ctrl.GetCustomFields)
+
+	// ✅ Duplicados por teléfono
+	r.GET("/clients/duplicates/phone", ctrl.GetDuplicatePhonesDTO)
+
+	// routes/client_routes.go
+	r.GET("/clients/external/:external_id", ctrl.GetByExternalID)
 }

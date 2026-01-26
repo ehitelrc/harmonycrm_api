@@ -42,11 +42,20 @@ func (ac *AgentDepartmentAssignmentController) GetByAgent(c *gin.Context) {
 		utils.Respond(c, http.StatusBadRequest, false, "agent_id inválido", nil, err)
 		return
 	}
+
+	if cached, found := utils.GetADAByAgentFromCache(uint(agentID)); found {
+		utils.Respond(c, http.StatusOK, true, "Asignaciones por agente (cache)", cached, nil)
+		return
+	}
+
 	rows, err := ac.repo.GetByAgent(uint(agentID))
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener asignaciones por agente", nil, err)
 		return
 	}
+
+	utils.CacheADAByAgent(uint(agentID), rows)
+
 	utils.Respond(c, http.StatusOK, true, "Asignaciones por agente", rows, nil)
 }
 
@@ -76,6 +85,10 @@ func (ac *AgentDepartmentAssignmentController) Create(c *gin.Context) {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al crear asignación", nil, err)
 		return
 	}
+
+	utils.DeleteCache(utils.ADAByIDKey(body.ID))
+	utils.DeleteCache(utils.ADAByAgentKey(body.AgentID))
+
 	utils.Respond(c, http.StatusCreated, true, "Asignación creada correctamente", body, nil)
 }
 
@@ -90,6 +103,10 @@ func (ac *AgentDepartmentAssignmentController) Update(c *gin.Context) {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al actualizar asignación", nil, err)
 		return
 	}
+
+	utils.DeleteCache(utils.ADAByIDKey(body.ID))
+	utils.DeleteCache(utils.ADAByAgentKey(body.AgentID))
+
 	utils.Respond(c, http.StatusOK, true, "Asignación actualizada correctamente", body, nil)
 }
 
@@ -105,6 +122,10 @@ func (ac *AgentDepartmentAssignmentController) Delete(c *gin.Context) {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al eliminar asignación", nil, err)
 		return
 	}
+
+	utils.DeleteCache(utils.ADAByIDKey(uint(id)))
+	// Note: We don't have the AgentID here to delete the agent cache, consider fetching it if necessary
+
 	utils.Respond(c, http.StatusOK, true, "Asignación eliminada correctamente", nil, nil)
 }
 
@@ -135,11 +156,20 @@ func (ac *AgentDepartmentAssignmentController) GetByCompanyAndAgent(c *gin.Conte
 		utils.Respond(c, http.StatusBadRequest, false, "agent_id inválido", nil, err)
 		return
 	}
+
+	if cached, found := utils.GetADAByCompanyAndAgentFromCache(uint(companyID), uint(agentID)); found {
+		utils.Respond(c, http.StatusOK, true, "Asignaciones por compañía y agente (cache)", cached, nil)
+		return
+	}
+
 	rows, err := ac.repo.GetByCompanyAndAgent(uint(companyID), uint(agentID))
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener asignaciones por compañía y agente", nil, err)
 		return
 	}
+
+	utils.CacheADAByCompanyAndAgent(uint(companyID), uint(agentID), rows)
+
 	utils.Respond(c, http.StatusOK, true, "Asignaciones por compañía y agente", rows, nil)
 }
 
@@ -168,6 +198,9 @@ func (ac *AgentDepartmentAssignmentController) SetAgentDepartments(c *gin.Contex
 		return
 	}
 
+	utils.DeleteCache(utils.ADAByAgentKey(uint(agentID)))
+	utils.DeleteCache(utils.ADAByCompanyAndAgentKey(uint(companyID), uint(agentID)))
+
 	utils.Respond(c, http.StatusOK, true, "Asignaciones del agente actualizadas correctamente", nil, nil)
 }
 
@@ -184,10 +217,30 @@ func (ac *AgentDepartmentAssignmentController) GetAgentsByDepartment(c *gin.Cont
 		utils.Respond(c, http.StatusBadRequest, false, "department_id inválido", nil, err)
 		return
 	}
+
+	if cached, found := utils.GetAgentsByDepartmentFromCache(
+		uint(companyID),
+		uint(deptID),
+	); found {
+		utils.Respond(
+			c,
+			http.StatusOK,
+			true,
+			"Agentes por departamento (cache)",
+			cached,
+			nil,
+		)
+		return
+	}
+
 	rows, err := ac.repo.GetAgentsByDepartment(uint(companyID), uint(deptID))
+
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener agentes por departamento", nil, err)
 		return
 	}
+
+	utils.CacheAgentsByDepartment(uint(companyID), uint(deptID), rows)
+
 	utils.Respond(c, http.StatusOK, true, "Agentes por departamento", rows, nil)
 }

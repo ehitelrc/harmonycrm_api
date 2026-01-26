@@ -120,3 +120,78 @@ func (cc *ClientController) GetCustomFields(c *gin.Context) {
 	}
 	utils.Respond(c, http.StatusOK, true, "Campos personalizados obtenidos correctamente", fields, nil)
 }
+
+// controllers/client_controller.go
+func (cc *ClientController) GetDuplicatePhones(c *gin.Context) {
+	rows, err := cc.repo.GetClientsWithDuplicatePhones()
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener clientes con teléfonos duplicados", nil, err)
+		return
+	}
+
+	utils.Respond(
+		c,
+		http.StatusOK,
+		true,
+		"Clientes con teléfonos duplicados obtenidos correctamente",
+		rows,
+		nil,
+	)
+}
+
+// controllers/client_controller.go
+func (cc *ClientController) GetDuplicatePhonesDTO(c *gin.Context) {
+	rows, err := cc.repo.GetDuplicatePhonesDTO()
+	if err != nil {
+		utils.Respond(
+			c,
+			http.StatusInternalServerError,
+			false,
+			"Error al obtener clientes con teléfonos duplicados",
+			nil,
+			err,
+		)
+		return
+	}
+
+	utils.Respond(
+		c,
+		http.StatusOK,
+		true,
+		"Clientes con teléfonos duplicados obtenidos correctamente",
+		rows,
+		nil,
+	)
+}
+
+// controllers/client_controller.go
+
+func (cc *ClientController) GetByExternalID(c *gin.Context) {
+	externalID := c.Param("external_id")
+	if externalID == "" {
+		utils.Respond(c, http.StatusBadRequest, false, "external_id inválido", nil, nil)
+		return
+	}
+
+	rows, err := cc.repo.GetByExternalID(externalID)
+	if err != nil {
+		utils.Respond(
+			c,
+			http.StatusInternalServerError,
+			false,
+			"Error al consultar clientes por external_id",
+			nil,
+			err,
+		)
+		return
+	}
+
+	utils.Respond(
+		c,
+		http.StatusOK,
+		true,
+		"Clientes obtenidos correctamente",
+		rows,
+		nil,
+	)
+}

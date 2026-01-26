@@ -20,11 +20,20 @@ func NewAgentController() *AgentController {
 
 // GET /agents
 func (ac *AgentController) GetAll(c *gin.Context) {
+
+	if cached, found := utils.GetAgentsAllFromCache(); found {
+		utils.Respond(c, http.StatusOK, true, "Agentes obtenidos correctamente (cache)", cached, nil)
+		return
+	}
+
 	rows, err := ac.repo.GetAll()
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener agentes", nil, err)
 		return
 	}
+
+	utils.CacheAgentsAll(rows)
+
 	utils.Respond(c, http.StatusOK, true, "Agentes obtenidos correctamente", rows, nil)
 }
 
@@ -35,11 +44,20 @@ func (ac *AgentController) GetByUserID(c *gin.Context) {
 		utils.Respond(c, http.StatusBadRequest, false, "user_id inválido", nil, err)
 		return
 	}
+
+	if cached, found := utils.GetAgentByUserIDFromCache(uint(id)); found {
+		utils.Respond(c, http.StatusOK, true, "Agente encontrado (cache)", cached, nil)
+		return
+	}
+
 	row, err := ac.repo.GetByUserID(uint(id))
 	if err != nil {
 		utils.Respond(c, http.StatusNotFound, false, "Agente no encontrado", nil, err)
 		return
 	}
+
+	utils.CacheAgentByUserID(uint(id), row)
+
 	utils.Respond(c, http.StatusOK, true, "Agente encontrado", row, nil)
 }
 
@@ -61,6 +79,7 @@ func (ac *AgentController) Create(c *gin.Context) {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al crear agente", nil, err)
 		return
 	}
+
 	utils.Respond(c, http.StatusCreated, true, "Agente creado correctamente", body, nil)
 }
 
@@ -86,11 +105,19 @@ func (ac *AgentController) GetAllByCompanyIDWithUserInfo(c *gin.Context) {
 		return
 	}
 
+	if cached, found := utils.GetAgentsByCompanyWithUserInfoFromCache(uint(companyID)); found {
+		utils.Respond(c, http.StatusOK, true, "Agentes obtenidos correctamente (cache)", cached, nil)
+		return
+	}
+
 	rows, err := ac.repo.GetAllByCompanyIDWithUserInfo(uint(companyID))
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener agentes con info de usuario por company_id", nil, err)
 		return
 	}
+
+	utils.CacheAgentsByCompanyWithUserInfo(uint(companyID), rows)
+
 	utils.Respond(c, http.StatusOK, true, "Agentes con info de usuario por company_id obtenidos correctamente", rows, nil)
 }
 
@@ -108,21 +135,41 @@ func (ac *AgentController) GetAllByCompanyIDAndDepartmentIDWithUserInfo(c *gin.C
 		return
 	}
 
+	if cached, found := utils.GetAgentsByCompanyAndDepartmentWithUserInfoFromCache(
+		uint(companyID),
+		uint(departmentID),
+	); found {
+		utils.Respond(c, http.StatusOK, true, "Agentes obtenidos correctamente (cache)", cached, nil)
+		return
+	}
+
 	rows, err := ac.repo.GetAllByCompanyIDAndDepartmentIDWithUserInfo(uint(companyID), uint(departmentID))
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener agentes con info de usuario por company_id y department_id", nil, err)
 		return
 	}
+
+	utils.CacheAgentsByCompanyAndDepartmentWithUserInfo(uint(companyID), uint(departmentID), rows)
+
 	utils.Respond(c, http.StatusOK, true, "Agentes con info de usuario por company_id y department_id obtenidos correctamente", rows, nil)
 }
 
 // GET /agents-with-user-info
 func (ac *AgentController) GetAllWithUserInfo(c *gin.Context) {
+
+	if cached, found := utils.GetAgentsWithUserInfoAllFromCache(); found {
+		utils.Respond(c, http.StatusOK, true, "Agentes con info de usuario obtenidos correctamente (cache)", cached, nil)
+		return
+	}
+
 	rows, err := ac.repo.GetAllWithUserInfo()
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener agentes con info de usuario", nil, err)
 		return
 	}
+
+	utils.CacheAgentsWithUserInfoAll(rows)
+
 	utils.Respond(c, http.StatusOK, true, "Agentes con info de usuario obtenidos correctamente", rows, nil)
 }
 
@@ -133,21 +180,38 @@ func (ac *AgentController) GetByUserIDWithUserInfo(c *gin.Context) {
 		utils.Respond(c, http.StatusBadRequest, false, "user_id inválido", nil, err)
 		return
 	}
+
+	if cached, found := utils.GetAgentWithUserInfoByUserIDFromCache(uint(id)); found {
+		utils.Respond(c, http.StatusOK, true, "Agente con info de usuario encontrado (cache)", cached, nil)
+		return
+	}
+
 	row, err := ac.repo.GetByUserIDWithUserInfo(uint(id))
 	if err != nil {
 		utils.Respond(c, http.StatusNotFound, false, "Agente con info de usuario no encontrado", nil, err)
 		return
 	}
+
+	utils.CacheAgentWithUserInfoByUserID(uint(id), row)
+
 	utils.Respond(c, http.StatusOK, true, "Agente con info de usuario encontrado", row, nil)
 }
 
 // GET /agents/non-agents
 func (ac *AgentController) GetAllNonAgents(c *gin.Context) {
+
+	if cached, found := utils.GetNonAgentsAllFromCache(); found {
+		utils.Respond(c, http.StatusOK, true, "Usuarios no agentes obtenidos correctamente (cache)", cached, nil)
+		return
+	}
+
 	rows, err := ac.repo.GetAllNonAgents()
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener usuarios no agentes", nil, err)
 		return
 	}
+
+	utils.CacheNonAgentsAll(rows)
 
 	utils.Respond(c, http.StatusOK, true, "Usuarios no agentes obtenidos correctamente", rows, nil)
 }

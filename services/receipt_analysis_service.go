@@ -35,6 +35,10 @@ func NewReceiptAnalysisService(
 // ────────────────────────────────────────────────────────────────
 func (s *ReceiptAnalysisService) AnalyzeFromBase64(ctx context.Context, base64Image string, caseID *uint, save bool) (*dto.ReceiptExtractionResult, error) {
 
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	// 1) OCR
 	rawText, err := s.ocrService.ProcessBase64(base64Image)
 	if err != nil {

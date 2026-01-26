@@ -224,7 +224,18 @@ func (m *MessageEntry) GetOpenCasesByCompanyAndDepartmentIDV2(c *gin.Context) {
 
 	offset := (page - 1) * limit
 
+	if cached, found := utils.GetOpenCasesFromCache(
+		uint(companyID),
+		uint(departmentID),
+		page,
+		limit,
+	); found {
+		utils.Respond(c, http.StatusOK, true, "Casos abiertos (cache)", cached, nil)
+		return
+	}
+
 	repo := repository.MessageRepository{}
+
 	items, total, err := repo.GetOpenCasesByCompanyAndDepartmentIDPaged(
 		companyID,
 		departmentID,
@@ -237,12 +248,17 @@ func (m *MessageEntry) GetOpenCasesByCompanyAndDepartmentIDV2(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, true, "Casos abiertos (v2)", gin.H{
+	payload := gin.H{
 		"items": items,
 		"total": total,
 		"page":  page,
 		"limit": limit,
-	}, nil)
+	}
+
+	utils.CacheOpenCases(uint(companyID), uint(departmentID), page, limit, payload)
+
+	utils.Respond(c, http.StatusOK, true, "Casos abiertos", payload, nil)
+
 }
 
 func (m *MessageEntry) GetOpenCasesStatsByCompanyAndDepartmentV2(c *gin.Context) {
@@ -259,6 +275,14 @@ func (m *MessageEntry) GetOpenCasesStatsByCompanyAndDepartmentV2(c *gin.Context)
 		return
 	}
 
+	if cached, found := utils.GetOpenCasesStatsFromCache(
+		uint(companyID),
+		uint(departmentID),
+	); found {
+		utils.Respond(c, http.StatusOK, true, "Stats (cache)", cached, nil)
+		return
+	}
+
 	repo := repository.MessageRepository{}
 	total, assigned, unassigned, err :=
 		repo.GetOpenCasesStatsByCompanyAndDepartment(companyID, departmentID)
@@ -268,11 +292,21 @@ func (m *MessageEntry) GetOpenCasesStatsByCompanyAndDepartmentV2(c *gin.Context)
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, true, "Stats de casos abiertos (v2)", gin.H{
+	data := gin.H{
 		"total_open": total,
 		"assigned":   assigned,
 		"unassigned": unassigned,
-	}, nil)
+	}
+
+	utils.CacheOpenCasesStats(uint(companyID), uint(departmentID), data)
+
+	utils.Respond(c, http.StatusOK, true, "Stats", data, nil)
+
+	// utils.Respond(c, http.StatusOK, true, "Stats de casos abiertos (v2)", gin.H{
+	// 	"total_open": total,
+	// 	"assigned":   assigned,
+	// 	"unassigned": unassigned,
+	// }, nil)
 }
 
 // Materialized
@@ -328,11 +362,22 @@ func (m *MessageEntry) GetCaseStats(c *gin.Context) {
 func (m *MessageEntry) MarkMessagesAsReadByCaseID(c *gin.Context) {
 	caseID := c.Param("case_id")
 	repository := repository.MessageRepository{}
+
 	err := repository.MarkMessagesAsReadByCaseID(caseID)
+
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al marcar los mensajes como leídos", nil, err)
 		return
 	}
+
+	// caseIDInt, err := strconv.Atoi(caseID)
+
+	// if err != nil {
+	// 	return
+	// }
+
+	//utils.InvalidateFirstMessagesByCase(uint(caseIDInt))
+
 	utils.Respond(c, http.StatusOK, true, "Mensajes marcados como leídos correctamente", nil, nil)
 
 }
@@ -553,6 +598,17 @@ func (m *MessageEntry) ReceiveAudioMessageWebhookMedia(c *gin.Context) {
 func (m *MessageEntry) GetActiveCasesByAgentID(c *gin.Context) {
 	agentID := c.Param("agent_id")
 
+	intAgentID, err := strconv.Atoi(agentID)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "agent_id inválido", nil, err)
+		return
+	}
+
+	if cached, found := utils.GetActiveCasesByAgentFromCache(uint(intAgentID)); found {
+		utils.Respond(c, http.StatusOK, true, "Casos activos (cache)", cached, nil)
+		return
+	}
+
 	repository := repository.MessageRepository{}
 
 	activeCases, err := repository.GetActiveCasesByAgentID(agentID)
@@ -561,19 +617,36 @@ func (m *MessageEntry) GetActiveCasesByAgentID(c *gin.Context) {
 		return
 	}
 
+	utils.CacheActiveCasesByAgent(uint(intAgentID), activeCases)
+
 	utils.Respond(c, http.StatusOK, true, "Casos activos obtenidos correctamente!", activeCases, nil)
 }
 
 func (m *MessageEntry) GetMessagesByCaseID(c *gin.Context) {
 	caseID := c.Param("case_id")
 
+	intCaseID, err := strconv.Atoi(caseID)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "case_id inválido", nil, err)
+		return
+	}
+
+	if cached, found := utils.GetFirstMessagesByCaseFromCache(uint(intCaseID)); found {
+		utils.Respond(c, http.StatusOK, true, "Mensajes (cache)", cached, nil)
+		fmt.Println("✅ Mensajes servidos desde cache para case_id:", caseID)
+		return
+	}
+
 	repository := repository.MessageRepository{}
 
 	messages, err := repository.GetMessagesByCaseID(caseID)
+
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener los mensajes", nil, err)
 		return
 	}
+
+	utils.CacheFirstMessagesByCase(uint(intCaseID), messages)
 
 	utils.Respond(c, http.StatusOK, true, "Mensajes obtenidos correctamente!", messages, nil)
 }
@@ -595,12 +668,134 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 	}
 
 	if channelIntegration != nil {
+
+		repo := repository.MessageRepository{}
+
+		open, err := repo.IsMessengerWindowOpen(input.CaseID)
+
+		if err != nil {
+			utils.Respond(c, http.StatusInternalServerError, false, "Error verificando ventana de mensajería", nil, err)
+			return
+		}
+
+		if channelIntegration.ChannelCode == "messenger" && !open {
+
+			// 1️⃣ Marcar error funcional
+			input.HasError = true
+			input.MessageError = "La ventana de mensajería de Messenger ha expirado (24h)"
+
+			// 2️⃣ Guardar el mensaje igualmente (traza)
+			repoMsg := repository.MessageRepository{}
+			_ = repoMsg.SendMessageToPlatform(input)
+
+			// 3️⃣ Responder al frontend (mensaje existe, pero falló)
+			utils.Respond(
+				c,
+				http.StatusOK, // ⚠️ negocio OK, envío NO
+				true,
+				"Mensaje registrado pero no enviado (ventana de 24h expirada)",
+				input,
+				nil,
+			)
+			return
+		}
+
+		// if channelIntegration.ChannelCode == "messenger" && input.MessageType == "text" {
+		// 	err := m.DispatchTextMessage(channelIntegration, input)
+
+		// 	if err != nil {
+		// 		utils.Respond(c, http.StatusInternalServerError, false, "Error al enviar el mensaje", nil, err)
+		// 		return
+		// 	}
 		if channelIntegration.ChannelCode == "messenger" && input.MessageType == "text" {
-			err := m.DispatchTextMessage(channelIntegration, input)
+
+			_, err := m.SendMessengerTextDirect(
+				*channelIntegration.AccessToken,
+				*channelIntegration.SenderID,
+				input.TextMessage,
+			)
 
 			if err != nil {
-				utils.Respond(c, http.StatusInternalServerError, false, "Error al enviar el mensaje", nil, err)
-				return
+				input.HasError = true
+				input.MessageError = err.Error()
+			} else {
+				input.HasError = false
+				input.MessageError = ""
+			}
+		} else if channelIntegration.ChannelCode == "messenger" && input.MessageType == "image" {
+
+			imageURL, err := utils.SaveBase64ImageAndGetURL(
+				input.Base64Content,
+				os.Getenv("PUBLIC_BASE_URL"),
+			)
+
+			if err != nil {
+				fmt.Println("❌ Error guardando imagen:", err)
+				input.HasError = true
+				input.MessageError = err.Error()
+			} else {
+
+				err = m.SendMessengerImage(
+					*channelIntegration.AccessToken,
+					*channelIntegration.SenderID,
+					imageURL,
+				)
+
+				if err != nil {
+					fmt.Println("❌ Error enviando imagen a Messenger:", err)
+					input.HasError = true
+					input.MessageError = err.Error()
+				} else {
+					input.HasError = false
+					input.MessageError = ""
+				}
+			}
+		} else if channelIntegration.ChannelCode == "messenger" && input.MessageType == "audio" {
+
+			// 🎧 Si viene webm → convertir a ogg (Messenger NO reproduce webm)
+			if input.MIMEType == "audio/webm" {
+
+				convertedBase64, newMime, err := convertWebMToOgg(input.Base64Content)
+				if err != nil {
+					input.HasError = true
+					input.MessageError = err.Error()
+				} else {
+					input.Base64Content = convertedBase64
+					input.MIMEType = newMime // audio/ogg
+					input.FileName = "audio.ogg"
+				}
+			}
+
+			// Si hubo error en conversión, no seguimos
+			if input.HasError {
+				// no hacemos return, dejamos que se guarde con error
+			} else {
+
+				audioURL, err := utils.SaveBase64AudioAndGetURL(
+					input.Base64Content,
+					input.MIMEType,
+					os.Getenv("PUBLIC_BASE_URL"),
+				)
+
+				if err != nil {
+					input.HasError = true
+					input.MessageError = err.Error()
+				} else {
+
+					err = m.SendMessengerAudio(
+						*channelIntegration.AccessToken,
+						*channelIntegration.SenderID,
+						audioURL,
+					)
+
+					if err != nil {
+						input.HasError = true
+						input.MessageError = err.Error()
+					} else {
+						input.HasError = false
+						input.MessageError = ""
+					}
+				}
 			}
 		} else if channelIntegration.ChannelCode == "whatsapp" && input.MessageType == "text" {
 			//err := m.DispatchWhatsappTextMessage(channelIntegration, input)
@@ -744,6 +939,8 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 		return
 	}
 
+	utils.InvalidateFirstMessagesByCase(uint(input.CaseID))
+
 	// Consumir
 
 	// payload, _ := json.Marshal(WSMessage{
@@ -877,6 +1074,161 @@ func (m *MessageEntry) GetCaseNotesByCaseID(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, true, "Notas del caso obtenidas correctamente", notes, nil)
+}
+
+func (m *MessageEntry) SendMessengerTextDirect(
+	pageAccessToken string,
+	recipientPSID string,
+	text string,
+) (string, error) {
+
+	url := "https://graph.facebook.com/v18.0/me/messages"
+
+	payload := map[string]interface{}{
+		"recipient": map[string]string{
+			"id": recipientPSID,
+		},
+		"message": map[string]string{
+			"text": text,
+		},
+	}
+
+	body, _ := json.Marshal(payload)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+pageAccessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode >= 300 {
+		return "", fmt.Errorf(
+			"messenger api error (%d): %s",
+			resp.StatusCode,
+			string(respBody),
+		)
+	}
+
+	var result struct {
+		MessageID string `json:"message_id"`
+	}
+
+	_ = json.Unmarshal(respBody, &result)
+
+	return result.MessageID, nil
+}
+
+func (m *MessageEntry) SendMessengerImage(
+	pageAccessToken string,
+	recipientPSID string,
+	imageURL string,
+) error {
+
+	url := "https://graph.facebook.com/v18.0/me/messages"
+
+	payload := map[string]interface{}{
+		"recipient": map[string]string{
+			"id": recipientPSID,
+		},
+		"message": map[string]interface{}{
+			"attachment": map[string]interface{}{
+				"type": "image",
+				"payload": map[string]interface{}{
+					"url":         imageURL,
+					"is_reusable": false,
+				},
+			},
+		},
+	}
+
+	body, _ := json.Marshal(payload)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("error creando request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+pageAccessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("error enviando request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf(
+			"messenger image error (%d): %s",
+			resp.StatusCode,
+			string(respBody),
+		)
+	}
+
+	return nil
+}
+
+func (m *MessageEntry) SendMessengerAudio(
+	pageAccessToken string,
+	recipientPSID string,
+	audioURL string,
+) error {
+
+	url := "https://graph.facebook.com/v18.0/me/messages"
+
+	payload := map[string]interface{}{
+		"recipient": map[string]string{
+			"id": recipientPSID,
+		},
+		"message": map[string]interface{}{
+			"attachment": map[string]interface{}{
+				"type": "audio",
+				"payload": map[string]interface{}{
+					"url": audioURL,
+				},
+			},
+		},
+	}
+
+	body, _ := json.Marshal(payload)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+pageAccessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf(
+			"messenger audio error (%d): %s",
+			resp.StatusCode,
+			string(respBody),
+		)
+	}
+
+	return nil
 }
 
 func (m *MessageEntry) DispatchTextMessage(channelIntegration *models.VWCaseChannelIntegration, message models.AgentMessage) error {

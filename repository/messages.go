@@ -7,6 +7,7 @@ import (
 	"harmony_api/models"
 	"strconv"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -740,4 +741,34 @@ func (r *MessageRepository) UpdateMediaContent(
 			"base64_content": base64,
 			"mime_type":      mime,
 		}).Error
+}
+
+func (r *MessageRepository) IsMessengerWindowOpen(caseID uint) (bool, error) {
+	var lastInbound struct {
+		CreatedAt time.Time
+	}
+
+	err := config.DB.
+		Model(&models.Message{}).
+		Select("created_at").
+		Where("case_id = ?", caseID).
+		Where("sender_type = ?", "client").
+		Order("created_at DESC").
+		Limit(1).
+		Scan(&lastInbound).Error
+
+	if err != nil {
+		return false, err
+	}
+
+	// Si no hay mensajes entrantes → ventana cerrada
+	if lastInbound.CreatedAt.IsZero() {
+		return false, nil
+	}
+
+	timer := time.Since(lastInbound.CreatedAt)
+	fmt.Printf("⏱ Tiempo desde el último mensaje entrante: %v\n", timer)
+
+	// Ventana válida = ahora < last_inbound + 24h
+	return time.Since(lastInbound.CreatedAt) <= 24*time.Hour, nil
 }

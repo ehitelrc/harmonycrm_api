@@ -84,6 +84,9 @@ Reglas IMPORTANTES:
 
 	userPrompt := fmt.Sprintf("TEXTO DEL RECIBO (OCR):\n\n%s", ocrText)
 
+	fmt.Println("ℹ️ Enviando solicitud a OpenAI para extracción de datos de recibo...")
+	fmt.Println(ocrText)
+
 	resp, err := p.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model: p.model,
 		Messages: []openai.ChatCompletionMessage{
