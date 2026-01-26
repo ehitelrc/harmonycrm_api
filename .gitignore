@@ -8,6 +8,7 @@
 # ========================
 *.json
 IA/*.json
+IA/harmonyvpocr-07dfbad813ad.json
 
 # ========================
 # Google Cloud
