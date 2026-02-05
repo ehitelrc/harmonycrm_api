@@ -2099,3 +2099,88 @@ func convertWebMToOgg(b64 string) (string, string, error) {
 
 	return oggBase64, "audio/ogg", nil
 }
+
+func (m *MessageEntry) DownloadMessageFile(c *gin.Context) {
+	messageID := c.Param("message_id")
+	if messageID == "" {
+		utils.Respond(c, http.StatusBadRequest, false, "message_id requerido", nil, nil)
+		return
+	}
+
+	id, err := strconv.Atoi(messageID)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "message_id inválido", nil, err)
+		return
+	}
+
+	repo := repository.MessageRepository{}
+	message, err := repo.GetMessageByID(uint(id))
+	if err != nil {
+		utils.Respond(c, http.StatusNotFound, false, "Mensaje no encontrado", nil, err)
+		return
+	}
+
+	if message.Base64Content == "" {
+		utils.Respond(c, http.StatusBadRequest, false, "El mensaje no contiene archivo", nil, nil)
+		return
+	}
+
+	// Limpiar prefijo data:xxx;base64, si existe
+	b64 := message.Base64Content
+	if idx := strings.Index(b64, ","); idx != -1 {
+		b64 = b64[idx+1:]
+	}
+
+	// Decodificar base64
+	data, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error decodificando archivo", nil, err)
+		return
+	}
+
+	// Nombre del archivo
+	fileName := message.TextContent
+	if fileName == "" {
+		// Fallback simple si no hay nombre
+		fileName = fmt.Sprintf("file_%d", message.ID)
+
+		// Intentar adivinar extensión por mime
+		if strings.Contains(message.MIMEType, "pdf") {
+			fileName += ".pdf"
+		} else if strings.Contains(message.MIMEType, "image") {
+			fileName += ".jpg" // genérico
+		} else if strings.Contains(message.MIMEType, "audio") {
+			fileName += ".ogg" // por defecto de whatsapp
+		} else {
+			fileName += ".bin"
+		}
+	}
+
+	// Limpiar nombre de archivo para seguridad básica
+	fileName = filepath.Base(fileName)
+
+	// Directorio de destino
+	baseDir := "public/downloads"
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error creando directorio de descargas", nil, err)
+		return
+	}
+
+	fullPath := filepath.Join(baseDir, fileName)
+
+	// Escribir archivo
+	if err := os.WriteFile(fullPath, data, 0644); err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error escribiendo archivo", nil, err)
+		return
+	}
+
+	// Construir URL pública relativa o absoluta según necesidad
+	// El usuario pidió "servir como ruta". Devolvemos la ruta relativa pública.
+	// Asumimos que ./public es root o similar
+	publicURL := fmt.Sprintf("/public/downloads/%s", fileName)
+
+	utils.Respond(c, http.StatusOK, true, "Archivo generado correctamente", gin.H{
+		"url":  publicURL,
+		"path": fullPath,
+	}, nil)
+}

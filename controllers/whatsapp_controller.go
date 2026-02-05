@@ -245,7 +245,7 @@ func (w *WhatsAppWebhookController) Receive(c *gin.Context) {
 
 	switch incoming.MessageType {
 
-	case "text", "image", "audio":
+	case "text", "image", "audio", "file":
 		newMessage, err := w.MessageEntry.processor.ProcessIncomingMessage(*incoming)
 		if err != nil {
 			utils.Respond(c, http.StatusInternalServerError, false, "Error procesando mensaje", nil, err)

@@ -772,3 +772,11 @@ func (r *MessageRepository) IsMessengerWindowOpen(caseID uint) (bool, error) {
 	// Ventana válida = ahora < last_inbound + 24h
 	return time.Since(lastInbound.CreatedAt) <= 24*time.Hour, nil
 }
+
+func (r *MessageRepository) GetMessageByID(id uint) (*models.Message, error) {
+	var message models.Message
+	if err := config.DB.First(&message, id).Error; err != nil {
+		return nil, err
+	}
+	return &message, nil
+}

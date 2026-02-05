@@ -87,6 +87,8 @@ func (p *MessageProcessor) ProcessIncomingMessage(
 		go p.processImage(input, newMessage)
 	case "audio":
 		go p.processAudio(input, newMessage)
+	case "file":
+		go p.processFile(input, newMessage)
 	}
 
 	return newMessage, nil

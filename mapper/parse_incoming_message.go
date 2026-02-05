@@ -36,6 +36,12 @@ func ParseWhatsAppToIncoming(req dto.WhatsAppWebhookRequest) *models.IncomingMes
 		messageType = "audio"
 		mimeType = msg.Audio.MIME
 		mediaID = msg.Audio.ID
+
+	case "document":
+		messageType = "file"                // Internal type 'file'
+		textMessage = msg.Document.Filename // filename → text_message
+		mimeType = msg.Document.MIME
+		mediaID = msg.Document.ID
 	}
 
 	incoming := models.IncomingMessage{
