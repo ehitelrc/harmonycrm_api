@@ -17,6 +17,7 @@ type Message struct {
 	MessageError     string    `gorm:"type:text" json:"message_error,omitempty"`
 	ChannelMessageID string    `gorm:"type:text" json:"channel_message_id,omitempty"`
 	MessageRead      bool      `gorm:"default:false" json:"message_read"`
+	Status           string    `json:"status"`
 }
 
 func (m *Message) TableName() string {

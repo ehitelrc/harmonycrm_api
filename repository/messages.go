@@ -781,3 +781,21 @@ func (r *MessageRepository) GetMessageByID(id uint) (*models.Message, error) {
 	}
 	return &message, nil
 }
+
+func (r *MessageRepository) UpdateMessageStatusByChannelID(channelMessageID string, status string) error {
+	result := config.DB.Model(&models.Message{}).
+		Where("channel_message_id = ?", channelMessageID).
+		Update("status", status)
+
+	if result.Error != nil {
+		return fmt.Errorf("error updating message status: %w", result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		// Log that no message was found, but don't treat it as a hard error unless necessary
+		// fmt.Printf("⚠️ No message found with channel_message_id: %s\n", channelMessageID)
+		return nil
+	}
+
+	return nil
+}

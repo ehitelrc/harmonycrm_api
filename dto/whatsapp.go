@@ -24,6 +24,30 @@ type WhatsAppValue struct {
 	Metadata         WhatsAppMetadata  `json:"metadata"`
 	Contacts         []WhatsAppContact `json:"contacts"`
 	Messages         []WhatsAppMessage `json:"messages"`
+	Statuses         []WhatsAppStatus  `json:"statuses,omitempty"`
+}
+
+type WhatsAppStatus struct {
+	ID           string `json:"id"`
+	Status       string `json:"status"`
+	Timestamp    string `json:"timestamp"`
+	RecipientID  string `json:"recipient_id"`
+	Conversation struct {
+		ID     string `json:"id"`
+		Origin struct {
+			Type string `json:"type"`
+		} `json:"origin"`
+	} `json:"conversation,omitempty"`
+	Pricing struct {
+		Billable     bool   `json:"billable"`
+		PricingModel string `json:"pricing_model"`
+		Category     string `json:"category"`
+	} `json:"pricing,omitempty"`
+	Errors []struct {
+		Code    int    `json:"code"`
+		Title   string `json:"title"`
+		Message string `json:"message"`
+	} `json:"errors,omitempty"`
 }
 
 type WhatsAppMetadata struct {

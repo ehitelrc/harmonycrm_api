@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"harmony_api/dto"
 	"harmony_api/mapper"
 	"harmony_api/models"
@@ -197,10 +198,52 @@ func (w *WhatsAppWebhookController) Receive(c *gin.Context) {
 	// Reinyectar body
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(raw))
 
+	// LOG RAW JSON
+	fmt.Println("=========================================")
+	fmt.Println("📩 RAW WEBHOOK FROM META:")
+	fmt.Println(string(raw))
+	fmt.Println("=========================================")
+
 	// Parse JSON Meta → DTO
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido desde Meta", nil, err)
 		return
+	}
+
+	// ---------------------------------------------------------
+	// CAPTURA DE ESTADOS (SENT, DELIVERED, READ)
+	// ---------------------------------------------------------
+
+	fmt.Println("=========================================")
+	fmt.Println("📩 RAW WEBHOOK FROM META:")
+	fmt.Println(req.Entry)
+	fmt.Println("=========================================")
+
+	if len(req.Entry) > 0 && len(req.Entry[0].Changes) > 0 {
+		change := req.Entry[0].Changes[0].Value
+		if len(change.Statuses) > 0 {
+
+			repo := repository.MessageRepository{}
+
+			for _, status := range change.Statuses {
+				fmt.Println("🔵 ESTADO WHATSAPP DETECTADO:")
+				fmt.Printf("   ID: %s\n", status.ID)
+				fmt.Printf("   Recipient: %s\n", status.RecipientID)
+				fmt.Printf("   Status: %s\n", status.Status)
+				fmt.Println("-----------------------------------------")
+
+				// Actualizar estado en la BD
+				if err := repo.UpdateMessageStatusByChannelID(status.ID, status.Status); err != nil {
+					fmt.Printf("❌ Error actualizando estado mensaje %s: %v\n", status.ID, err)
+				} else {
+					fmt.Printf("✅ Estado mensaje %s actualizado a %s\n", status.ID, status.Status)
+				}
+			}
+			// Si es solo status, no procesamos como mensaje entrante (text, image, etc)
+			// Retornamos 200 OK para que Meta deje de reintentar
+			utils.Respond(c, http.StatusOK, true, "Status recibido", nil, nil)
+			return
+		}
 	}
 
 	// Convertir DTO Meta → IncomingMessage unificado
