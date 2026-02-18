@@ -824,6 +824,7 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 
 				input.HasError = false
 				input.MessageError = ""
+				input.ChannelMessageID = wamid
 
 			}
 
@@ -857,11 +858,16 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 
 			input.MIMEType = mimeType
 
-			err = m.sendWhatsAppImage(*channelIntegration.AppIdentifier, *channelIntegration.AccessToken, *recipientId, media_id, input.TextMessage)
+			wamid, err := m.sendWhatsAppImage(*channelIntegration.AppIdentifier, *channelIntegration.AccessToken, *recipientId, media_id, input.TextMessage)
 			if err != nil {
 				utils.Respond(c, http.StatusInternalServerError, false, "Error al enviar el mensaje", nil, err)
 				return
 			}
+
+			input.HasError = false
+			input.MessageError = ""
+			input.ChannelMessageID = wamid
+
 		} else if channelIntegration.ChannelCode == "whatsapp" && input.MessageType == "file" {
 
 			mediaID, err := uploadBase64File(
@@ -876,17 +882,25 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 				return
 			}
 
-			err = m.sendWhatsAppDocument(
+			id, err := m.sendWhatsAppDocument(
 				*channelIntegration.AppIdentifier,
 				*channelIntegration.AccessToken,
 				*channelIntegration.SenderID,
 				mediaID,
 				input.FileName,
 			)
+			if err == nil {
+				fmt.Println("✅ Documento enviado correctamente. ID:", id)
+			}
 			if err != nil {
 				utils.Respond(c, http.StatusInternalServerError, false, "Error al enviar archivo", nil, err)
 				return
 			}
+
+			input.HasError = false
+			input.MessageError = ""
+			input.ChannelMessageID = id
+
 		} else if channelIntegration.ChannelCode == "whatsapp" && input.MessageType == "audio" {
 
 			// ------------------------------
@@ -919,16 +933,23 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 				return
 			}
 
-			err = m.sendWhatsAppAudio(
+			id, err := m.sendWhatsAppAudio(
 				*channelIntegration.AppIdentifier,
 				*channelIntegration.AccessToken,
 				*channelIntegration.SenderID,
 				mediaID,
 			)
+			if err == nil {
+				fmt.Println("✅ Audio enviado correctamente. ID:", id)
+				input.HasError = false
+				input.MessageError = ""
+				input.ChannelMessageID = id
+			}
 			if err != nil {
 				utils.Respond(c, http.StatusInternalServerError, false, "Error al enviar audio", nil, err)
 				return
 			}
+
 		}
 	}
 
@@ -1524,7 +1545,7 @@ func uploadBase64Image(phoneNumberID, accessToken, base64DataParam string) (stri
 	return id, nil
 }
 
-func (m *MessageEntry) sendWhatsAppImage(phoneNumberID, accessToken, to, mediaID, caption string) error {
+func (m *MessageEntry) sendWhatsAppImage(phoneNumberID, accessToken, to, mediaID, caption string) (string, error) {
 	url := fmt.Sprintf("https://graph.facebook.com/v24.0/%s/messages", phoneNumberID)
 
 	payload := map[string]interface{}{
@@ -1540,7 +1561,7 @@ func (m *MessageEntry) sendWhatsAppImage(phoneNumberID, accessToken, to, mediaID
 	body, _ := json.Marshal(payload)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
-		return fmt.Errorf("❌ error creando request: %w", err)
+		return "", fmt.Errorf("❌ error creando request: %w", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -1548,7 +1569,7 @@ func (m *MessageEntry) sendWhatsAppImage(phoneNumberID, accessToken, to, mediaID
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("❌ error enviando request: %w", err)
+		return "", fmt.Errorf("❌ error enviando request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -1556,11 +1577,28 @@ func (m *MessageEntry) sendWhatsAppImage(phoneNumberID, accessToken, to, mediaID
 	fmt.Println("📡 Respuesta de envío:", string(respBody))
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("❌ error API (%d): %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("❌ error API (%d): %s", resp.StatusCode, string(respBody))
 	}
 
+	// Parsear respuesta
+	var result struct {
+		Messages []struct {
+			ID string `json:"id"`
+		} `json:"messages"`
+	}
+
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("error parseando respuesta: %w", err)
+	}
+
+	if len(result.Messages) == 0 {
+		return "", fmt.Errorf("la API regresó 200 pero no devolvió mensajes")
+	}
+
+	id := result.Messages[0].ID
+
 	fmt.Println("✅ Mensaje enviado correctamente.")
-	return nil
+	return id, nil
 }
 
 func textProto(mime, filename string) textproto.MIMEHeader {
@@ -1617,7 +1655,7 @@ func uploadBase64File(appID, token, rawBase64, mime, fileName string) (string, e
 
 	return response.ID, nil
 }
-func (m *MessageEntry) sendWhatsAppDocument(appID, token, recipient, mediaID, caption string) error {
+func (m *MessageEntry) sendWhatsAppDocument(appID, token, recipient, mediaID, caption string) (string, error) {
 	url := fmt.Sprintf("https://graph.facebook.com/v24.0/%s/messages", appID)
 
 	payload := map[string]interface{}{
@@ -1638,16 +1676,32 @@ func (m *MessageEntry) sendWhatsAppDocument(appID, token, recipient, mediaID, ca
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer res.Body.Close()
 
+	respBody, _ := io.ReadAll(res.Body)
+
 	if res.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(res.Body)
-		return fmt.Errorf("error sending WhatsApp document: %s", string(bodyBytes))
+		return "", fmt.Errorf("error sending WhatsApp document: %s", string(respBody))
 	}
 
-	return nil
+	// Parsear respuesta
+	var result struct {
+		Messages []struct {
+			ID string `json:"id"`
+		} `json:"messages"`
+	}
+
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("error parseando respuesta: %w", err)
+	}
+
+	if len(result.Messages) == 0 {
+		return "", fmt.Errorf("la API regresó 200 pero no devolvió mensajes")
+	}
+
+	return result.Messages[0].ID, nil
 }
 
 // controllers/message_entry.go
@@ -1935,7 +1989,7 @@ func strOrEmpty(s *string) string {
 	return ""
 }
 
-func (m *MessageEntry) sendWhatsAppAudio(appID, token, recipient, mediaID string) error {
+func (m *MessageEntry) sendWhatsAppAudio(appID, token, recipient, mediaID string) (string, error) {
 	url := fmt.Sprintf("https://graph.facebook.com/v24.0/%s/messages", appID)
 
 	payload := map[string]interface{}{
@@ -1951,7 +2005,7 @@ func (m *MessageEntry) sendWhatsAppAudio(appID, token, recipient, mediaID string
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
-		return fmt.Errorf("error creando request: %w", err)
+		return "", fmt.Errorf("error creando request: %w", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -1959,7 +2013,7 @@ func (m *MessageEntry) sendWhatsAppAudio(appID, token, recipient, mediaID string
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("error enviando request: %w", err)
+		return "", fmt.Errorf("error enviando request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -1967,10 +2021,25 @@ func (m *MessageEntry) sendWhatsAppAudio(appID, token, recipient, mediaID string
 	fmt.Println("📡 Respuesta WhatsApp AUDIO:", string(respBody))
 
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("error API (%d): %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("error API (%d): %s", resp.StatusCode, string(respBody))
 	}
 
-	return nil
+	// Parsear respuesta
+	var result struct {
+		Messages []struct {
+			ID string `json:"id"`
+		} `json:"messages"`
+	}
+
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("error parseando respuesta: %w", err)
+	}
+
+	if len(result.Messages) == 0 {
+		return "", fmt.Errorf("la API regresó 200 pero no devolvió mensajes")
+	}
+
+	return result.Messages[0].ID, nil
 }
 
 func cleanBase64(input string) string {

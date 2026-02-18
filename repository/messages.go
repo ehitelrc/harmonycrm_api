@@ -362,15 +362,16 @@ func (r *MessageRepository) SendMessageToPlatform(message models.AgentMessage) e
 	println("Agente -->", agentID)
 
 	newMessage := models.Message{
-		CaseID:        message.CaseID,
-		SenderType:    message.SenderType,
-		MessageType:   message.MessageType,
-		TextContent:   message.TextMessage,
-		Base64Content: message.Base64Content,
-		MIMEType:      message.MIMEType,
-		AgentID:       &agentID,
-		HasError:      message.HasError,
-		MessageError:  message.MessageError,
+		CaseID:           message.CaseID,
+		SenderType:       message.SenderType,
+		MessageType:      message.MessageType,
+		TextContent:      message.TextMessage,
+		Base64Content:    message.Base64Content,
+		MIMEType:         message.MIMEType,
+		AgentID:          &agentID,
+		HasError:         message.HasError,
+		MessageError:     message.MessageError,
+		ChannelMessageID: message.ChannelMessageID,
 	}
 
 	err = config.DB.Create(&newMessage).Error

@@ -3,19 +3,20 @@ package models
 import "time"
 
 type Message struct {
-	ID            uint      `gorm:"primaryKey" json:"id"`
-	CaseID        uint      `gorm:"not null" json:"case_id"`
-	SenderType    string    `gorm:"type:enum('client','agent')" json:"sender_type"`
-	MessageType   string    `gorm:"type:enum('text','image','file','audio')" json:"message_type"`
-	TextContent   string    `gorm:"type:text" json:"text_content,omitempty"`
-	FileURL       string    `gorm:"type:text" json:"file_url,omitempty"`
-	MIMEType      string    `gorm:"type:text" json:"mime_type,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
-	Base64Content string    `gorm:"type:text" json:"base64_content,omitempty"`
-	AgentID       *uint     `json:"agent_id,omitempty"`
-	HasError      bool      `gorm:"default:false" json:"has_error"`
-	MessageError  string    `gorm:"type:text" json:"message_error,omitempty"`
-	MessageRead   bool      `gorm:"default:false" json:"message_read"`
+	ID               uint      `gorm:"primaryKey" json:"id"`
+	CaseID           uint      `gorm:"not null" json:"case_id"`
+	SenderType       string    `gorm:"type:enum('client','agent')" json:"sender_type"`
+	MessageType      string    `gorm:"type:enum('text','image','file','audio')" json:"message_type"`
+	TextContent      string    `gorm:"type:text" json:"text_content,omitempty"`
+	FileURL          string    `gorm:"type:text" json:"file_url,omitempty"`
+	MIMEType         string    `gorm:"type:text" json:"mime_type,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+	Base64Content    string    `gorm:"type:text" json:"base64_content,omitempty"`
+	AgentID          *uint     `json:"agent_id,omitempty"`
+	HasError         bool      `gorm:"default:false" json:"has_error"`
+	MessageError     string    `gorm:"type:text" json:"message_error,omitempty"`
+	ChannelMessageID string    `gorm:"type:text" json:"channel_message_id,omitempty"`
+	MessageRead      bool      `gorm:"default:false" json:"message_read"`
 }
 
 func (m *Message) TableName() string {
