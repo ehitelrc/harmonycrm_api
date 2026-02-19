@@ -55,6 +55,14 @@ func (r *ChannelRepository) GetWhatsappTemplatesByCompanyID(companyId uint) ([]m
 	return templates, nil
 }
 
+func (r *ChannelRepository) GetWhatsappTemplatesByChannelID(channelId uint) ([]models.VwChannelWhatsAppTemplate, error) {
+	var templates []models.VwChannelWhatsAppTemplate
+	if err := config.DB.Where("channel_id = ?", channelId).Find(&templates).Error; err != nil {
+		return nil, err
+	}
+	return templates, nil
+}
+
 func (r *ChannelRepository) UpdateWhatsappTemplate(template *models.ChannelWhatsAppTemplate) error {
 	return config.DB.Save(template).Error
 }

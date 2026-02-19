@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"harmony_api/models"
 	"harmony_api/ws"
+	"io"
 	"net/http"
 	"strconv"
 	"sync"
@@ -136,4 +137,64 @@ func SendTemplateToMany(
 
 	wg.Wait()
 	fmt.Println("✅ Todos los templates procesados.")
+}
+
+// SendTemplateMessageWithID sends a template message and returns the Meta Message ID (wamid)
+func SendTemplateMessageWithID(apiBaseURL, phoneNumberID, accessToken, templateName, languageCode, to string) (string, error) {
+	msg := WhatsAppMessage{
+		MessagingProduct: "whatsapp",
+		To:               to,
+		Type:             "template",
+		Template: TemplateBlock{
+			Name: templateName,
+			Language: LanguageBlock{
+				Code: languageCode,
+			},
+		},
+	}
+
+	body, _ := json.Marshal(msg)
+	fmt.Println("Payload JSON:", string(body))
+
+	url := apiBaseURL + "/" + phoneNumberID + "/messages"
+	fmt.Println("Enviando a URL:", url)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return "", fmt.Errorf("error creando request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error enviando request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode >= 300 {
+		return "", fmt.Errorf("error en respuesta: %s - %s", resp.Status, string(respBody))
+	}
+
+	var result struct {
+		Messages []struct {
+			ID string `json:"id"`
+		} `json:"messages"`
+	}
+
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("error parsing response: %w", err)
+	}
+
+	if len(result.Messages) == 0 {
+		return "", fmt.Errorf("no message ID returned from Meta")
+	}
+
+	wamid := result.Messages[0].ID
+	fmt.Printf("📩 Mensaje enviado a %s | ID: %s\n", to, wamid)
+	return wamid, nil
 }

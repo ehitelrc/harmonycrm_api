@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"harmony_api/config"
 	"harmony_api/dto"
 	"harmony_api/mapper"
 	"harmony_api/models"
@@ -232,11 +233,29 @@ func (w *WhatsAppWebhookController) Receive(c *gin.Context) {
 				fmt.Printf("   Status: %s\n", status.Status)
 				fmt.Println("-----------------------------------------")
 
+				// ------------------------------------------------------------------
+				// LOGGING DE ESTADOS (NUEVO REQUERIMIENTO)
+				// ------------------------------------------------------------------
+				msgStatusLog := models.MessageStatus{
+					ChannelMessageID: status.ID,
+					MessageStatus:    status.Status,
+					Applied:          false, // Por defecto false, o true si el update de abajo funciona
+				}
+
+				if err := config.DB.Create(&msgStatusLog).Error; err != nil {
+					fmt.Printf("❌ Error guardando log de estado mensaje %s: %v\n", status.ID, err)
+				} else {
+					fmt.Printf("✅ Log de estado guardado ID: %d\n", msgStatusLog.ID)
+				}
+
 				// Actualizar estado en la BD
 				if err := repo.UpdateMessageStatusByChannelID(status.ID, status.Status); err != nil {
 					fmt.Printf("❌ Error actualizando estado mensaje %s: %v\n", status.ID, err)
 				} else {
 					fmt.Printf("✅ Estado mensaje %s actualizado a %s\n", status.ID, status.Status)
+
+					// Marcar como aplicado
+					// config.DB.Model(&msgStatusLog).Update("applied", true)
 				}
 			}
 			// Si es solo status, no procesamos como mensaje entrante (text, image, etc)

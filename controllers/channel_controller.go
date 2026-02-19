@@ -109,6 +109,22 @@ func (ctrl *ChannelController) UpdateWhatsappTemplate(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": template})
 }
 
+func (ctrl *ChannelController) GetWhatsappTemplatesByChannelID(c *gin.Context) {
+	channelIDParam := c.Param("channel_id")
+	channelID, err := strconv.Atoi(channelIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "ID de canal inválido"})
+		return
+	}
+
+	templates, err := ctrl.Repo.GetWhatsappTemplatesByChannelID(uint(channelID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Error al obtener plantillas de Whatsapp", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": templates})
+}
+
 func (ctrl *ChannelController) DeleteWhatsappTemplate(c *gin.Context) {
 	templateIDParam := c.Param("template_id")
 	templateID, err := strconv.Atoi(templateIDParam)

@@ -1,10 +1,12 @@
 package repository
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"harmony_api/config"
 	"harmony_api/models"
+	"harmony_api/ws"
 	"strconv"
 	"strings"
 	"time"
@@ -795,6 +797,75 @@ func (r *MessageRepository) UpdateMessageStatusByChannelID(channelMessageID stri
 		// Log that no message was found, but don't treat it as a hard error unless necessary
 		// fmt.Printf("⚠️ No message found with channel_message_id: %s\n", channelMessageID)
 		return nil
+	}
+
+	return nil
+}
+
+func (r *MessageRepository) ProcessUnappliedMessageStatuses(hub *ws.Hub) error {
+	var statuses []models.MessageStatus
+
+	// 1. Obtener estados no aplicados (Ordenados por ID ascendente para respetar secuencia)
+	if err := config.DB.Where("applied = ?", false).Order("id ASC").Find(&statuses).Error; err != nil {
+		return fmt.Errorf("error fetching unapplied statuses: %w", err)
+	}
+
+	if len(statuses) == 0 {
+		return nil
+	}
+
+	fmt.Printf("🔄 Procesando %d estados de mensajes pendientes...\n", len(statuses))
+
+	for _, s := range statuses {
+		// 2. Actualizar la tabla messages
+		// Usamos UpdateMessageStatusByChannelID que ya existe, o lo hacemos directo aquí
+		// Al hacerlo directo podemos manejar mejor el error sin loguear tanto si no existe
+
+		// Antes de actualizar, necesitamos el ID y CaseID para el websocket
+		var message models.Message
+		if err := config.DB.Debug().Where("channel_message_id = ?", s.ChannelMessageID).First(&message).Error; err != nil {
+			// Si no existe, no podemos hacer mucho más que ignorar, o loguear
+			fmt.Printf("⚠️ Mensaje no encontrado para status %s (Error: %v)\n", s.ChannelMessageID, err)
+		}
+
+		result := config.DB.Model(&models.Message{}).
+			Where("channel_message_id = ?", s.ChannelMessageID).
+			Update("status", s.MessageStatus)
+
+		if result.Error != nil {
+			fmt.Printf("❌ Error sincronizando status %s: %v\n", s.ChannelMessageID, result.Error)
+			continue
+		}
+
+		// 3. Marcar como aplicado
+		if err := config.DB.Model(&s).Update("applied", true).Error; err != nil {
+			fmt.Printf("❌ Error marcando status %d como aplicado: %v\n", s.ID, err)
+		} else {
+			// fmt.Printf("✅ Status %s sincronizado.\n", s.ChannelMessageID)
+
+			// 4. Broadcast Websocket si tenemos mensaje valido
+			if message.ID != 0 && hub != nil {
+				// Log debug broadcast
+				fmt.Printf("📢 Intentando broadcast WS para Caso: %d, ID: %d, Status: %s\n", message.CaseID, message.ID, s.MessageStatus)
+
+				payload, _ := json.Marshal(map[string]interface{}{
+					"type":    "message_status_update",
+					"id":      message.ID,
+					"case_id": message.CaseID,
+					"status":  s.MessageStatus,
+				})
+
+				channel := fmt.Sprintf("case:%d", message.CaseID)
+				hub.BroadcastJSON(channel, payload)
+			} else {
+				if message.ID == 0 {
+					fmt.Println("⚠️ Broadcast WS omitido: Message ID es 0")
+				}
+				if hub == nil {
+					fmt.Println("⚠️ Broadcast WS omitido: Hub es nil")
+				}
+			}
+		}
 	}
 
 	return nil

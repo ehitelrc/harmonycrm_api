@@ -59,6 +59,10 @@ func GetActiveCasesByAgentFromCache(agentID uint) (interface{}, bool) {
 	return GetFromCache(ActiveCasesByAgentKey(agentID))
 }
 
+func InvalidateActiveCasesByAgent(agentID uint) {
+	DeleteCache(ActiveCasesByAgentKey(agentID))
+}
+
 /* -------------------------------
    FIRST PAGE MESSAGES (UX)
 --------------------------------*/

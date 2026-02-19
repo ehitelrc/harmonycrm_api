@@ -296,14 +296,36 @@ func (r *CampaignPushingRepository) NewCaseFromTemplate(request dto.NewWhatsappC
 
 				caseID = int64(newCase.ID)
 
-				recipients := []models.TemplateRecipient{
-					{
-						Number: request.ContactPhone,
-						CaseID: &caseID,
-					},
+				// recipients := []models.TemplateRecipient{
+				// 	{
+				// 		Number: request.ContactPhone,
+				// 		CaseID: &caseID,
+				// 	},
+				// }
+
+				// utils.SendTemplateToMany(template.TemplateUrlWebhook, *template.AppIdentifier, *template.AccessToken, *template.TemplateName, *template.Language, recipients, hub)
+
+				// ------------------------------------------------------------------
+				// NUEVO: Enviar template individual y capturar ID (Wamid)
+				// ------------------------------------------------------------------
+				wamid, err := utils.SendTemplateMessageWithID(
+					template.TemplateUrlWebhook,
+					*template.AppIdentifier,
+					*template.AccessToken,
+					*template.TemplateName,
+					*template.Language,
+					request.ContactPhone,
+				)
+
+				if err != nil {
+					return fmt.Errorf("error enviando template: %w", err)
 				}
 
-				utils.SendTemplateToMany(template.TemplateUrlWebhook, *template.AppIdentifier, *template.AccessToken, *template.TemplateName, *template.Language, recipients, hub)
+				// Actualizar el mensaje con el ID de Meta
+				if err := tx.Model(&models.Message{}).Where("id = ?", newMessage.ID).Update("channel_message_id", wamid).Error; err != nil {
+					fmt.Printf("⚠️ Error actualizando channel_message_id para mensaje %d: %v\n", newMessage.ID, err)
+					// No retornamos error fatal para no hacer rollback de todo el caso
+				}
 
 			} else {
 				return err

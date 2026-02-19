@@ -22,6 +22,8 @@ func RegisterChannelRoutes(r *gin.RouterGroup) {
 	// By department
 	r.GET("/channels/whatsapp/templates/department/:department_id", controller.GetWhatsappTemplatesByDepartmentID)
 
+	r.GET("/templates/channel/:channel_id", controller.GetWhatsappTemplatesByChannelID)
+
 	r.PUT("/channels/whatsapp/templates", controller.UpdateWhatsappTemplate)
 	r.DELETE("/channels/whatsapp/templates/:template_id", controller.DeleteWhatsappTemplate)
 

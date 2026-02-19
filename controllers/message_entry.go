@@ -1884,9 +1884,25 @@ func (m *MessageEntry) CloseCase(c *gin.Context) {
 	}
 
 	repo := repository.MessageRepository{}
+
+	// 1. Obtener el caso antes de cerrarlo para saber el agente
+	caseData, err := repo.GetCaseByID(uint(req.CaseID))
+	if err != nil {
+		// Loguear error pero intentar cerrar de todas formas?
+		// Mejor fallar si no podemos validar, o simplemente continuar.
+		// En este caso continuamos el cierre, el cache expirará solo en 30s si falla esto.
+		fmt.Println("⚠️ Error obteniendo caso para invalidar cache:", err)
+	}
+
 	if err := repo.CloseCase(req); err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al cerrar el caso", nil, err)
 		return
+	}
+
+	// 2. Invalidar cache si tenía agente asignado
+	if caseData != nil && caseData.AgentID > 0 {
+		utils.InvalidateActiveCasesByAgent(caseData.AgentID)
+		fmt.Println("🧹 Cache invalidado para agente:", caseData.AgentID)
 	}
 
 	utils.Respond(c, http.StatusOK, true, "Caso cerrado correctamente", nil, nil)
