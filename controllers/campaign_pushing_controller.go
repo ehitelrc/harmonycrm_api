@@ -96,6 +96,7 @@ func (ctrl *CampaignPushingController) CreateNewWhatsappCaseFromTemplate(c *gin.
 	}
 
 	caseID, err := ctrl.repo.NewCaseFromTemplate(requestBody, ctrl.hub)
+
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error creating new WhatsApp case from template", nil, err)
 		return

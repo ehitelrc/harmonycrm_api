@@ -1,12 +1,14 @@
 package models
 
 type ChannelWhatsAppTemplate struct {
-	ID                 int64  `gorm:"primaryKey;column:id" json:"id"`
-	DepartmentID       int64  `gorm:"column:department_id;not null" json:"department_id"`
-	TemplateName       string `gorm:"column:template_name;size:50;not null" json:"template_name"`
-	Language           string `gorm:"column:language;size:10;not null" json:"language"`
-	Active             bool   `gorm:"column:active;default:true;not null" json:"active"`
-	TemplateUrlWebhook string `gorm:"column:template_url_webhook" json:"template_url_webhook"`
+	ID                   int64  `gorm:"primaryKey;column:id" json:"id"`
+	DepartmentID         int64  `gorm:"column:department_id;not null" json:"department_id"`
+	TemplateName         string `gorm:"column:template_name;size:50;not null" json:"template_name"`
+	Language             string `gorm:"column:language;size:10;not null" json:"language"`
+	Active               bool   `gorm:"column:active;default:true;not null" json:"active"`
+	TemplateUrlWebhook   string `gorm:"column:template_url_webhook" json:"template_url_webhook"`
+	ChannelIntegrationID int64  `gorm:"column:channel_integration_id;not null" json:"channel_integration_id"`
+	TemplateDescription  string `gorm:"column:template_description;size:255;not null" json:"template_description"`
 }
 
 // TableName especifica el nombre de la tabla en la BD

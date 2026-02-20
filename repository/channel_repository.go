@@ -55,9 +55,9 @@ func (r *ChannelRepository) GetWhatsappTemplatesByCompanyID(companyId uint) ([]m
 	return templates, nil
 }
 
-func (r *ChannelRepository) GetWhatsappTemplatesByChannelID(channelId uint) ([]models.VwChannelWhatsAppTemplate, error) {
-	var templates []models.VwChannelWhatsAppTemplate
-	if err := config.DB.Where("channel_id = ?", channelId).Find(&templates).Error; err != nil {
+func (r *ChannelRepository) GetWhatsappTemplatesByChannelID(channelId uint) ([]models.ChannelWhatsAppTemplate, error) {
+	var templates []models.ChannelWhatsAppTemplate
+	if err := config.DB.Where("channel_integration_id = ?", channelId).Find(&templates).Error; err != nil {
 		return nil, err
 	}
 	return templates, nil
@@ -65,6 +65,14 @@ func (r *ChannelRepository) GetWhatsappTemplatesByChannelID(channelId uint) ([]m
 
 func (r *ChannelRepository) UpdateWhatsappTemplate(template *models.ChannelWhatsAppTemplate) error {
 	return config.DB.Save(template).Error
+}
+
+func (r *ChannelRepository) GetWhatsappTemplatesByIntegrationID(integrationId uint) ([]models.ChannelWhatsAppTemplate, error) {
+	var templates []models.ChannelWhatsAppTemplate
+	if err := config.DB.Debug().Where("channel_integration_id = ?", integrationId).Find(&templates).Error; err != nil {
+		return nil, err
+	}
+	return templates, nil
 }
 
 func (r *ChannelRepository) DeleteWhatsappTemplate(template_id uint) error {
