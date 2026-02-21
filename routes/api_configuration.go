@@ -122,6 +122,8 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 
 	RegisterMessengerWebHookRoutes(api, hub, receiptAnalysisService)
 
+	RegisterTemplateRoutes(api)
+
 	r.Static("/public", "./public")
 
 	// Endpoint de verificación de estado
