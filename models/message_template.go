@@ -19,6 +19,9 @@ type MessageTemplate struct {
 
 	IsConversationStarter bool `gorm:"default:false" json:"is_conversation_starter"`
 
+	// Calculated field — populated by GetAll, not stored in DB
+	LinkedCount int `gorm:"column:linked_count;->" json:"linked_count"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

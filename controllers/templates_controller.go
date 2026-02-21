@@ -21,7 +21,18 @@ func NewTemplateController() *TemplateController {
 }
 
 func (c *TemplateController) GetAllTemplates(ctx *gin.Context) {
-	templates, err := c.repo.GetAll()
+	var channelID *uint
+	if raw := ctx.Query("channel_id"); raw != "" {
+		id, err := strconv.Atoi(raw)
+		if err != nil {
+			utils.Respond(ctx, http.StatusBadRequest, false, "channel_id inválido", nil, err)
+			return
+		}
+		uid := uint(id)
+		channelID = &uid
+	}
+
+	templates, err := c.repo.GetAll(channelID)
 	if err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener las plantillas", nil, err)
 		return

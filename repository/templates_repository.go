@@ -12,9 +12,20 @@ func NewTemplateRepository() *TemplateRepository {
 	return &TemplateRepository{}
 }
 
-func (r *TemplateRepository) GetAll() ([]models.MessageTemplate, error) {
+func (r *TemplateRepository) GetAll(channelID *uint) ([]models.MessageTemplate, error) {
 	var templates []models.MessageTemplate
-	err := config.DB.Find(&templates).Error
+
+	q := config.DB.
+		Select(`message_templates.*,
+			(SELECT COUNT(*) FROM integration_templates it
+			 WHERE it.template_id = message_templates.id) AS linked_count`).
+		Model(&models.MessageTemplate{})
+
+	if channelID != nil {
+		q = q.Debug().Where("message_templates.channel_id = ?", *channelID)
+	}
+
+	err := q.Find(&templates).Error
 	return templates, err
 }
 
