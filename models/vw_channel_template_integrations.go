@@ -13,6 +13,7 @@ type ChannelTemplateIntegration struct {
 	IntegrationName string `gorm:"column:integration_name" json:"integration_name"`
 	CompanyID       uint   `gorm:"column:company_id"       json:"company_id"`
 	DepartmentID    *uint  `gorm:"column:department_id"    json:"department_id"`
+	Description     string `gorm:"column:description"      json:"description"`
 
 	IsLinked bool `gorm:"column:is_linked" json:"is_linked"`
 }

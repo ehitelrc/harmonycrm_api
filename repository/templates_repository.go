@@ -54,7 +54,7 @@ func (r *TemplateRepository) Delete(id uint) error {
 
 func (r *TemplateRepository) GetByIntegrationID(integrationID uint) ([]models.ChannelTemplateIntegration, error) {
 	var results []models.ChannelTemplateIntegration
-	err := config.DB.
+	err := config.DB.Debug().
 		Where("integration_id = ?", integrationID).
 		Find(&results).Error
 	return results, err
