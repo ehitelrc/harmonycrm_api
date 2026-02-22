@@ -99,4 +99,7 @@ func InitializeMessage(r gin.RouterGroup, hub *ws.Hub, receiptAnalysisService *s
 	// Mark messages as read by case_id
 	api.PUT("/entry/mark_messages_read/case/:case_id", controller.MarkMessagesAsReadByCaseID)
 
+	// New case from template
+	api.POST("/entry/new-case/template", controller.CreateNewCaseFromTemplate)
+
 }

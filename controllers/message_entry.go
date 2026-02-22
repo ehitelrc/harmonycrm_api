@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"harmony_api/dto"
 	"harmony_api/models"
 	"harmony_api/repository"
 	"harmony_api/services"
@@ -31,6 +32,7 @@ import (
 // }
 
 type MessageEntry struct {
+	hub                    *ws.Hub
 	processor              *services.MessageProcessor
 	receiptAnalysisService *services.ReceiptAnalysisService
 }
@@ -48,6 +50,7 @@ func NewMessageEntry(
 ) *MessageEntry {
 
 	return &MessageEntry{
+		hub:                    hub,
 		processor:              services.NewMessageProcessor(hub, ras),
 		receiptAnalysisService: ras,
 	}
@@ -370,16 +373,38 @@ func (m *MessageEntry) MarkMessagesAsReadByCaseID(c *gin.Context) {
 		return
 	}
 
-	// caseIDInt, err := strconv.Atoi(caseID)
-
-	// if err != nil {
-	// 	return
-	// }
-
-	//utils.InvalidateFirstMessagesByCase(uint(caseIDInt))
-
 	utils.Respond(c, http.StatusOK, true, "Mensajes marcados como leídos correctamente", nil, nil)
 
+}
+
+func (m *MessageEntry) CreateNewCaseFromTemplate(c *gin.Context) {
+	var requestBody dto.NewWhatsappCaseFromTemplateRequest
+
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "Invalid request body", nil, err)
+		return
+	}
+
+	repo := repository.MessageRepository{}
+	caseID, err := repo.NewCaseFromTemplate(requestBody, m.hub)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error creating new case from template", nil, err)
+		return
+	}
+
+	if caseID != 0 && m.hub != nil {
+		payload, _ := json.Marshal(WSMessage{
+			Type:   "new_message",
+			CaseID: uint(caseID),
+			Data:   "",
+		})
+		channel := "case:" + strconv.Itoa(int(caseID))
+		m.hub.BroadcastJSON(channel, payload)
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Nuevo caso creado correctamente", map[string]interface{}{
+		"case_id": caseID,
+	}, nil)
 }
 
 // func (m *MessageEntry) ReceiveImageMessageWebhookMedia(c *gin.Context) {

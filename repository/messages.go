@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"harmony_api/config"
+	"harmony_api/dto"
 	"harmony_api/models"
+	"harmony_api/utils"
 	"harmony_api/ws"
 	"strconv"
 	"strings"
@@ -869,4 +871,120 @@ func (r *MessageRepository) ProcessUnappliedMessageStatuses(hub *ws.Hub) error {
 	}
 
 	return nil
+}
+
+// NewCaseFromTemplate creates a new case (or reuses an open one) and sends a WhatsApp template message.
+func (r *MessageRepository) NewCaseFromTemplate(request dto.NewWhatsappCaseFromTemplateRequest, hub *ws.Hub) (int64, error) {
+	db := config.DB
+
+	var caseID int64
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+
+		// 1. Obtener el template (nuevo modelo MessageTemplate)
+		var template models.MessageTemplate
+		if err := tx.Where("id = ?", request.TemplateID).First(&template).Error; err != nil {
+			return fmt.Errorf("template no encontrado: %w", err)
+		}
+
+		// 2. Obtener datos de la integración enviada por el frontend
+		var integration models.ViewChannelIntegration
+		if err := tx.Where("channel_integration_id = ?", request.ChannelIntegrationID).First(&integration).Error; err != nil {
+			return fmt.Errorf("integración no encontrada: %w", err)
+		}
+
+		// 3. Verificar si ya existe un caso abierto para este contacto + integración
+		var existingCase models.Case
+		err := tx.Where(
+			"channel_integration_id = ? AND sender_id = ? AND status = ?",
+			request.ChannelIntegrationID, request.ContactPhone, "open",
+		).First(&existingCase).Error
+
+		if err == nil {
+			// Caso ya abierto → no crear uno nuevo
+			caseID = int64(existingCase.ID)
+			return nil
+		}
+
+		if err != gorm.ErrRecordNotFound {
+			return err
+		}
+
+		// 4. Crear nuevo caso usando datos de la integración
+		number := strconv.FormatUint(uint64(integration.ChannelID), 10)
+		newCase := models.Case{
+			SenderId:             request.ContactPhone,
+			ChannelID:            number,
+			CompanyID:            integration.CompanyID,
+			ChannelIntegrationID: integration.ChannelIntegrationID,
+			IsNonCommercial:      integration.IsNonCommercial,
+			DepartmentID:         *integration.DepartmentID,
+			ClientID:             request.ClientID,
+			AgentID:              uint(request.AgentID),
+			Status:               "open",
+		}
+		if err := tx.Create(&newCase).Error; err != nil {
+			return err
+		}
+
+		// 5. Obtener texto del body del template desde Meta usando credenciales de la integración
+		bodyText, err := GetTemplateBodyFromMeta(template.TemplateName, integration.AccessToken)
+		if err != nil {
+			bodyText = "Apertura mediante template"
+		}
+
+		// 6. Crear mensaje inicial en DB
+		newMessage := models.Message{
+			CaseID:      newCase.ID,
+			SenderType:  "agent",
+			MessageType: "text",
+			TextContent: bodyText,
+			MessageRead: true,
+		}
+		if err := tx.Create(&newMessage).Error; err != nil {
+			return err
+		}
+
+		caseID = int64(newCase.ID)
+
+		// 7. Despachar según el canal de la integración
+		channelCode := ""
+		if integration.ChannelCode != nil {
+			channelCode = *integration.ChannelCode
+		}
+
+		switch channelCode {
+		case "whatsapp":
+			// WhatsApp: enviar template vía Meta Graph API
+			wamid, err := utils.SendTemplateMessageWithID(
+				"https://graph.facebook.com/v24.0",
+				integration.AppIdentifier,
+				integration.AccessToken,
+				template.TemplateName,
+				template.LanguageCode,
+				request.ContactPhone,
+			)
+			if err != nil {
+				return fmt.Errorf("error enviando template por WhatsApp: %w", err)
+			}
+
+			// 8. Actualizar channel_message_id con el Wamid recibido
+			if err := tx.Model(&models.Message{}).Where("id = ?", newMessage.ID).Update("channel_message_id", wamid).Error; err != nil {
+				fmt.Printf("⚠️ Error actualizando channel_message_id para mensaje %d: %v\n", newMessage.ID, err)
+			}
+
+		default:
+			// Otros canales (Messenger, Instagram, etc.): el caso y el mensaje quedan creados en DB.
+			// Los templates son un concepto exclusivo de WhatsApp Business API.
+			fmt.Printf("ℹ️ Canal '%s': caso creado sin envío de template externo\n", channelCode)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
+	return caseID, nil
 }
