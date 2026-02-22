@@ -407,6 +407,41 @@ func (m *MessageEntry) CreateNewCaseFromTemplate(c *gin.Context) {
 	}, nil)
 }
 
+// SendTemplateToCase envía un template a un caso existente usando message_templates
+func (m *MessageEntry) SendTemplateToCase(c *gin.Context) {
+	templateID, err := strconv.Atoi(c.Param("template_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "template_id inválido", nil, err)
+		return
+	}
+
+	caseID, err := strconv.Atoi(c.Param("case_id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "case_id inválido", nil, err)
+		return
+	}
+
+	repo := repository.MessageRepository{}
+	newMessage, err := repo.SendTemplateToCase(templateID, caseID)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error enviando template al caso", nil, err)
+		return
+	}
+
+	// Broadcast WS
+	if caseID != 0 && m.hub != nil {
+		payload, _ := json.Marshal(WSMessage{
+			Type:   "new_message",
+			CaseID: uint(caseID),
+			Data:   newMessage,
+		})
+		channel := "case:" + strconv.Itoa(caseID)
+		m.hub.BroadcastJSON(channel, payload)
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Template enviado correctamente", nil, nil)
+}
+
 // func (m *MessageEntry) ReceiveImageMessageWebhookMedia(c *gin.Context) {
 // 	var input models.IncomingMessage
 

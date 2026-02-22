@@ -102,4 +102,7 @@ func InitializeMessage(r gin.RouterGroup, hub *ws.Hub, receiptAnalysisService *s
 	// New case from template
 	api.POST("/entry/new-case/template", controller.CreateNewCaseFromTemplate)
 
+	// Send template to existing case (uses message_templates)
+	api.POST("/entry/send-template/template/:template_id/case/:case_id", controller.SendTemplateToCase)
+
 }

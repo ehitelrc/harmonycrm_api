@@ -873,6 +873,70 @@ func (r *MessageRepository) ProcessUnappliedMessageStatuses(hub *ws.Hub) error {
 	return nil
 }
 
+// SendTemplateToCase envía un mensaje de plantilla a un caso existente usando los nuevos modelos
+// MessageTemplate / IntegrationTemplate. El template_id corresponde a message_templates.id.
+func (r *MessageRepository) SendTemplateToCase(templateID int, caseID int) (*models.Message, error) {
+
+	// 1. Obtener el template desde message_templates
+	var template models.MessageTemplate
+	if err := config.DB.Where("id = ?", templateID).First(&template).Error; err != nil {
+		return nil, fmt.Errorf("template no encontrado: %w", err)
+	}
+
+	// 2. Obtener los datos del caso con su integración
+	var caseIntegration models.VWCaseChannelIntegration
+	if err := config.DB.Where("case_id = ?", caseID).First(&caseIntegration).Error; err != nil {
+		return nil, fmt.Errorf("integración del caso no encontrada: %w", err)
+	}
+
+	// 3. Obtener el texto del body del template desde Meta
+	bodyText, err := GetTemplateBodyFromMeta(template.TemplateName, *caseIntegration.AccessToken)
+	if err != nil {
+		bodyText = "Mensaje enviado mediante template"
+	}
+
+	// 4. Crear el registro del mensaje en la base de datos
+	newMessage := models.Message{
+		CaseID:      uint(caseID),
+		SenderType:  "agent",
+		MessageType: "text",
+		TextContent: bodyText,
+		MessageRead: true,
+	}
+
+	if err := config.DB.Create(&newMessage).Error; err != nil {
+		return nil, fmt.Errorf("error guardando mensaje: %w", err)
+	}
+
+	// 5. Despachar según el tipo de canal
+	switch caseIntegration.ChannelCode {
+	case "whatsapp":
+		// WhatsApp: enviar template vía Meta Graph API y capturar wamid
+		wamid, err := utils.SendTemplateMessageWithID(
+			"https://graph.facebook.com/v24.0",
+			*caseIntegration.AppIdentifier,
+			*caseIntegration.AccessToken,
+			template.TemplateName,
+			template.LanguageCode,
+			*caseIntegration.SenderID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error enviando template por WhatsApp: %w", err)
+		}
+
+		// Actualizar channel_message_id con el wamid recibido
+		if err := config.DB.Model(&models.Message{}).Where("id = ?", newMessage.ID).Update("channel_message_id", wamid).Error; err != nil {
+			fmt.Printf("⚠️ Error actualizando channel_message_id para mensaje %d: %v\n", newMessage.ID, err)
+		}
+
+	default:
+		// Otros canales: el mensaje queda registrado en DB; los templates son exclusivos de WhatsApp Business API.
+		fmt.Printf("ℹ️ Canal '%s': mensaje registrado sin envío de template externo\n", caseIntegration.ChannelCode)
+	}
+
+	return &newMessage, nil
+}
+
 // NewCaseFromTemplate creates a new case (or reuses an open one) and sends a WhatsApp template message.
 func (r *MessageRepository) NewCaseFromTemplate(request dto.NewWhatsappCaseFromTemplateRequest, hub *ws.Hub) (int64, error) {
 	db := config.DB
