@@ -377,6 +377,7 @@ func (m *MessageEntry) MarkMessagesAsReadByCaseID(c *gin.Context) {
 
 }
 
+// CreateNewCaseFromTemplate creates a new case from a template
 func (m *MessageEntry) CreateNewCaseFromTemplate(c *gin.Context) {
 	var requestBody dto.NewWhatsappCaseFromTemplateRequest
 
@@ -393,13 +394,18 @@ func (m *MessageEntry) CreateNewCaseFromTemplate(c *gin.Context) {
 	}
 
 	if caseID != 0 && m.hub != nil {
-		payload, _ := json.Marshal(WSMessage{
-			Type:   "new_message",
-			CaseID: uint(caseID),
-			Data:   "",
+		payload, _ := json.Marshal(map[string]interface{}{
+			"type":    "new_message",
+			"case_id": caseID,
+			"data":    nil, // O un objeto vacío, la recarga del lado del FE se basa en el evento
 		})
+
 		channel := "case:" + strconv.Itoa(int(caseID))
 		m.hub.BroadcastJSON(channel, payload)
+
+		if requestBody.AgentID != 0 {
+			m.hub.BroadcastJSON("agent:"+strconv.Itoa(requestBody.AgentID), payload)
+		}
 	}
 
 	utils.Respond(c, http.StatusOK, true, "Nuevo caso creado correctamente", map[string]interface{}{
@@ -430,13 +436,18 @@ func (m *MessageEntry) SendTemplateToCase(c *gin.Context) {
 
 	// Broadcast WS
 	if caseID != 0 && m.hub != nil {
-		payload, _ := json.Marshal(WSMessage{
-			Type:   "new_message",
-			CaseID: uint(caseID),
-			Data:   newMessage,
+		payload, _ := json.Marshal(map[string]interface{}{
+			"type":    "new_message",
+			"case_id": caseID,
+			"data":    newMessage,
 		})
+
 		channel := "case:" + strconv.Itoa(caseID)
 		m.hub.BroadcastJSON(channel, payload)
+
+		if newMessage != nil && newMessage.AgentID != nil {
+			m.hub.BroadcastJSON("agent:"+strconv.Itoa(int(*newMessage.AgentID)), payload)
+		}
 	}
 
 	utils.Respond(c, http.StatusOK, true, "Template enviado correctamente", nil, nil)

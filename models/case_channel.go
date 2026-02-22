@@ -45,6 +45,8 @@ type CaseWithChannel struct {
 	//agent_full_name es el nombre completo del agente asignado
 	AgentFullName *string `json:"agent_full_name,omitempty" gorm:"column:agent_full_name"`
 
+	PaymentFound *bool `json:"payment_found,omitempty" gorm:"column:payment_found"`
+
 	UnreadCount *int `json:"unread_count,omitempty" gorm:"column:unread_count"`
 }
 
