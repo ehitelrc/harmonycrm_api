@@ -26,6 +26,19 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 	db := config.DB
 	var pushID int64
 
+	// Para crear el caso ocupamos datos del integration
+	var integration models.ViewChannelIntegration
+
+	if err := db.Where("channel_integration_id = ?", data.ChannelIntegrationID).First(&integration).Error; err != nil {
+		return 0, err
+	}
+
+	// Buscar info del template
+	var template models.ChannelTemplateIntegration
+	if err := db.Where("template_id = ?", data.TemplateID).First(&template).Error; err != nil {
+		return 0, err
+	}
+
 	err := db.Transaction(func(tx *gorm.DB) error {
 
 		// ===========================================================
@@ -46,15 +59,10 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 			pushID = header.ID
 		}
 
-		// Buscar info del template
-		var template models.CompanyChannelTemplateView
-		if err := tx.Where("template_id = ?", data.TemplateID).First(&template).Error; err != nil {
-			return err
-		}
-
 		// Listas donde meteremos leads + recipients para el envío masivo
 		var leadsToInsert []models.CampaignWhatsappPushLead
 		var recipients []models.TemplateRecipient
+		messageIDs := make(map[string]uint)
 
 		// ===========================================================
 		// 2. Procesar cada lead
@@ -65,26 +73,21 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 			var existingCase models.Case
 			err := tx.
 				Where("channel_integration_id = ? AND sender_id = ? AND status = ?",
-					template.ChannelIntegrationID, l.PhoneNumber, "open").
+					template.IntegrationID, l.PhoneNumber, "open").
 				First(&existingCase).Error
 
 			var caseID int64
 
-			if err == nil {
+			switch err {
+			case nil:
 				// Caso ya existe
 				caseID = int64(existingCase.ID)
 
-			} else if err == gorm.ErrRecordNotFound {
+			case gorm.ErrRecordNotFound:
 
 				// =======================================================
 				// 2A. Crear un nuevo caso porque NO existe uno abierto
 				// =======================================================
-
-				// Para crear el caso ocupamos datos del integration
-				var integration models.ViewChannelIntegration
-				if err := tx.Where("channel_integration_id = ?", template.ChannelIntegrationID).First(&integration).Error; err != nil {
-					return err
-				}
 
 				channelIDStr := strconv.FormatUint(uint64(integration.ChannelID), 10)
 
@@ -104,9 +107,9 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 					return err
 				}
 
-				bodyText, err := GetTemplateBodyFromMeta(*template.TemplateName, *template.AccessToken)
+				bodyText, err := GetTemplateBodyFromMeta(*&template.TemplateName, integration.AccessToken)
 				if err != nil {
-					bodyText = "Apertura mediante template"
+					return err
 				}
 
 				// Crear mensaje inicial
@@ -122,9 +125,11 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 					return err
 				}
 
+				messageIDs[l.PhoneNumber] = openMsg.ID
+
 				caseID = int64(newCase.ID)
 
-			} else {
+			default:
 				// Error inesperado al buscar case
 				return err
 			}
@@ -159,17 +164,36 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 		}
 
 		// ===========================================================
-		// 4. Enviar mensaje de plantilla
+		// 4. Enviar mensajes de plantilla uno por uno
 		// ===========================================================
-		utils.SendTemplateToMany(
-			template.TemplateUrlWebhook,
-			*template.AppIdentifier,
-			*template.AccessToken,
-			*template.TemplateName,
-			*template.Language,
-			recipients,
-			hub,
-		)
+		for _, r := range recipients {
+
+			/// switch channel code
+
+			if *integration.ChannelCode == "whatsapp" {
+				wamid, err := utils.SendTemplateMessageWithID(
+					"https://graph.facebook.com/v24.0",
+					integration.AppIdentifier,
+					integration.AccessToken,
+					template.TemplateName,
+					template.LanguageCode,
+					r.Number,
+				)
+
+				if err != nil {
+					fmt.Printf("⚠️ Error enviando template a %s: %v\n", r.Number, err)
+					continue
+				}
+
+				// Intentar actualizar el mensaje si tenemos el ID (solo para casos nuevos)
+				if msgID, ok := messageIDs[r.Number]; ok {
+					if err := tx.Model(&models.Message{}).Where("id = ?", msgID).Update("channel_message_id", wamid).Error; err != nil {
+						fmt.Printf("⚠️ Error actualizando channel_message_id para mensaje %d: %v\n", msgID, err)
+					}
+				}
+			}
+
+		}
 
 		return nil
 	})
@@ -197,17 +221,8 @@ func (r *CampaignPushingRepository) SendWhatsappTemplateMessage(templateID int, 
 		return nil, err
 	}
 
-	// Enviar mensaje de plantilla
-	caseIDParam := int64(caseChannelIntegration.CaseID)
-
-	recipients := []models.TemplateRecipient{
-		{
-			Number: *caseChannelIntegration.SenderID,
-			CaseID: &caseIDParam,
-		},
-	}
-
 	// create message record
+	caseIDParam := int64(caseChannelIntegration.CaseID)
 
 	bodyText, err := GetTemplateBodyFromMeta(*&template.TemplateName, *caseChannelIntegration.AccessToken)
 	if err != nil {
@@ -226,7 +241,23 @@ func (r *CampaignPushingRepository) SendWhatsappTemplateMessage(templateID int, 
 		return nil, err
 	}
 
-	utils.SendTemplateToMany(template.TemplateUrlWebhook, *caseChannelIntegration.AppIdentifier, *caseChannelIntegration.AccessToken, *&template.TemplateName, *&template.Language, recipients, nil)
+	wamid, err := utils.SendTemplateMessageWithID(
+		template.TemplateUrlWebhook,
+		*caseChannelIntegration.AppIdentifier,
+		*caseChannelIntegration.AccessToken,
+		template.TemplateName,
+		template.Language,
+		*caseChannelIntegration.SenderID,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("error enviando template: %w", err)
+	}
+
+	// Actualizar el mensaje con el ID de Meta
+	if err := config.DB.Model(&models.Message{}).Where("id = ?", newMessage.ID).Update("channel_message_id", wamid).Error; err != nil {
+		fmt.Printf("⚠️ Error actualizando channel_message_id para mensaje %d: %v\n", newMessage.ID, err)
+	}
 
 	return &newMessage, nil
 }
