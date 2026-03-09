@@ -953,12 +953,14 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 				return
 			}
 
+			//sendWhatsAppDocument(appID, token, recipient, mediaID, caption string)
+
 			id, err := m.sendWhatsAppDocument(
 				*channelIntegration.AppIdentifier,
 				*channelIntegration.AccessToken,
 				*channelIntegration.SenderID,
 				mediaID,
-				input.FileName,
+				input.TextMessage,
 			)
 			if err == nil {
 				fmt.Println("✅ Documento enviado correctamente. ID:", id)
