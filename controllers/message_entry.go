@@ -722,6 +722,25 @@ func (m *MessageEntry) GetMessagesByCaseID(c *gin.Context) {
 	utils.Respond(c, http.StatusOK, true, "Mensajes obtenidos correctamente!", messages, nil)
 }
 
+func (m *MessageEntry) GetClientImagesByCaseID(c *gin.Context) {
+	caseID := c.Param("case_id")
+
+	if _, err := strconv.Atoi(caseID); err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "case_id inválido", nil, err)
+		return
+	}
+
+	repo := repository.MessageRepository{}
+	images, err := repo.GetClientImagesByCaseID(caseID)
+
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener las imágenes del cliente", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Imágenes obtenidas correctamente!", images, nil)
+}
+
 func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 	var input models.AgentMessage
 

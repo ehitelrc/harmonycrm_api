@@ -347,6 +347,15 @@ func (r *MessageRepository) GetMessagesByCaseID(caseID string) ([]models.Message
 	return messages, err
 }
 
+// GetClientImagesByCaseID fetches all client messages of type 'image' for a given case_id
+func (r *MessageRepository) GetClientImagesByCaseID(caseID string) ([]models.Message, error) {
+	var messages []models.Message
+	err := config.DB.Where("case_id = ? AND message_type = 'image' AND sender_type = 'client'", caseID).
+		Order("id ASC").
+		Find(&messages).Error
+	return messages, err
+}
+
 func (r *MessageRepository) SendMessageToPlatform(message models.AgentMessage) error {
 
 	// transform AgentMessage to Message

@@ -19,9 +19,9 @@ func (r *PaymentValidationRepository) GetPaymentValidations(startDate, endDate s
 	query := config.DB.Model(&models.VwPaymentValidations{})
 
 	if startDate != "" && endDate != "" {
-		query = query.Where("receipt_date >= ? AND receipt_date <= ?", startDate, endDate)
+		query = query.Where("ocr_date >= ? AND ocr_date <= ?", startDate+" 00:00:00", endDate+" 23:59:59.999999")
 	} else if startDate != "" {
-		query = query.Where("receipt_date >= ?", startDate)
+		query = query.Where("ocr_date >= ?", startDate+" 00:00:00")
 	}
 
 	if caseId > 0 {
@@ -32,7 +32,7 @@ func (r *PaymentValidationRepository) GetPaymentValidations(startDate, endDate s
 		query = query.Where("contract_id = ?", contractId)
 	}
 
-	err := query.Find(&validations).Error
+	err := query.Debug().Find(&validations).Error
 	return validations, err
 }
 

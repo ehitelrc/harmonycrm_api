@@ -27,6 +27,9 @@ func InitializeMessage(r gin.RouterGroup, hub *ws.Hub, receiptAnalysisService *s
 	// Get messages by case_id
 	api.GET("/entry/messages/:case_id", controller.GetMessagesByCaseID)
 
+	// Get client images by case_id
+	api.GET("/entry/client_images/:case_id", controller.GetClientImagesByCaseID)
+
 	// Download message file
 	api.GET("/entry/download/:message_id", controller.DownloadMessageFile)
 
