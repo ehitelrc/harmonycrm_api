@@ -124,6 +124,8 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 
 	RegisterTemplateRoutes(api)
 
+	RegisterPaymentValidationRoutes(api)
+
 	r.Static("/public", "./public")
 
 	// Endpoint de verificación de estado

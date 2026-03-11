@@ -730,6 +730,11 @@ func (m *MessageEntry) SendMessageToPlatform(c *gin.Context) {
 		return
 	}
 
+	if input.MessageType == "text" && strings.TrimSpace(input.TextMessage) == "" {
+		utils.Respond(c, http.StatusBadRequest, false, "El contenido del mensaje de texto no puede estar vacío", map[string]interface{}{"error_code": "EMPTY_TEXT"}, fmt.Errorf("text_content no puede estar vacío si message_type es text"))
+		return
+	}
+
 	channelRepository := repository.ChannelRepository{}
 
 	channelIntegration, err := channelRepository.GetChannerlByCaseID(input.CaseID)
