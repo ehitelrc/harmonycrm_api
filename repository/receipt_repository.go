@@ -5,6 +5,7 @@ import (
 	"harmony_api/config"
 	"harmony_api/dto"
 	"harmony_api/models"
+	"time"
 )
 
 type ReceiptRepository struct{}
@@ -13,7 +14,7 @@ func NewReceiptRepository() *ReceiptRepository {
 	return &ReceiptRepository{}
 }
 
-func (r *ReceiptRepository) SaveReceiptResult(result *dto.ReceiptExtractionResult, caseID uint) (*models.ReceiptResult, error) {
+func (r *ReceiptRepository) SaveReceiptResult(result *dto.ReceiptExtractionResult, caseID uint, createdAt *time.Time) (*models.ReceiptResult, error) {
 
 	warningsJSON, _ := json.Marshal(result.Warnings)
 
@@ -40,6 +41,10 @@ func (r *ReceiptRepository) SaveReceiptResult(result *dto.ReceiptExtractionResul
 		Description: result.Description,
 		RawText:     result.RawText,
 		Warnings:    string(warningsJSON),
+	}
+
+	if createdAt != nil {
+		record.CreatedAt = *createdAt
 	}
 
 	if err := config.DB.Create(&record).Error; err != nil {

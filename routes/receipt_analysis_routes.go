@@ -11,5 +11,8 @@ func ReceiptAnalysisRoutes(router *gin.RouterGroup, ctrl *controllers.ReceiptAna
 	{
 		// POST /api/receipts/analyze
 		r.POST("/analyze", ctrl.AnalyzeReceipt)
+
+		// POST /api/receipts/analyze-and-save
+		r.POST("/analyze-and-save", ctrl.AnalyzeAndSaveReceipt)
 	}
 }

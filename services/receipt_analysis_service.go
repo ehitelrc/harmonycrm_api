@@ -86,9 +86,9 @@ func (s *ReceiptAnalysisService) AnalyzeFromText(ctx context.Context, ocrText st
 	// result.Amount = utils.NormalizeAmount(result.Amount)
 	// result.AmountSent = utils.NormalizeAmount(result.AmountSent)
 
-	// 6) Opcional: guardar en BD
+	// 6) Opcional:		// 4. Guardar en Base de Datos de resultados
 	if save && caseID != nil {
-		_, err := s.repo.SaveReceiptResult(result, *caseID)
+		_, err := s.repo.SaveReceiptResult(result, *caseID, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error guardando extracción de recibo: %w", err)
 		}

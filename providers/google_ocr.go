@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	vision "cloud.google.com/go/vision/apiv1"
 	"google.golang.org/api/option"
@@ -27,6 +28,11 @@ func NewGoogleOCR(credentialsPath string) (*GoogleOCR, error) {
 
 // Función que recibe base64 y devuelve texto
 func (g *GoogleOCR) OCRFromBase64(base64Image string) (string, error) {
+	// Strip "data:image/...;base64," prefix if it exists
+	if idx := strings.Index(base64Image, ","); idx != -1 {
+		base64Image = base64Image[idx+1:]
+	}
+
 	raw, err := base64.StdEncoding.DecodeString(base64Image)
 	if err != nil {
 		return "", fmt.Errorf("error decodificando base64: %v", err)
