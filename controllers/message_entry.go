@@ -557,7 +557,7 @@ func (m *MessageEntry) SendTemplateToCase(c *gin.Context) {
 // 		// Guardar en la base de datos
 // 		receiptRepo := repository.NewReceiptRepository()
 
-// 		record, err := receiptRepo.SaveReceiptResult(result, caseID)
+// 		record, err := receiptRepo.SaveReceiptResult(result, caseID, nil, nil)
 // 		if err != nil {
 // 			fmt.Println("❌ Error guardando recibo:", err)
 // 			return
@@ -2322,8 +2322,9 @@ func (m *MessageEntry) DownloadMessageFile(c *gin.Context) {
 
 	// Nombre del archivo
 	fileName := message.TextContent
-	if fileName == "" {
-		// Fallback simple si no hay nombre
+	
+	// Si el texto es muy largo, tiene saltos de línea, o está vacío, es probable que sea un caption y no un nombre de archivo.
+	if fileName == "" || len(fileName) > 60 || strings.Contains(fileName, "\n") || strings.Contains(fileName, "\r") {
 		fileName = fmt.Sprintf("file_%d", message.ID)
 
 		// Intentar adivinar extensión por mime
@@ -2333,9 +2334,26 @@ func (m *MessageEntry) DownloadMessageFile(c *gin.Context) {
 			fileName += ".jpg" // genérico
 		} else if strings.Contains(message.MIMEType, "audio") {
 			fileName += ".ogg" // por defecto de whatsapp
+		} else if strings.Contains(message.MIMEType, "video") {
+			fileName += ".mp4"
 		} else {
 			fileName += ".bin"
 		}
+	} else {
+		// Si usamos el TextContent como nombre, aseguremos que tenga extensión
+		if !strings.Contains(fileName, ".") {
+			if strings.Contains(message.MIMEType, "pdf") {
+				fileName += ".pdf"
+			} else if strings.Contains(message.MIMEType, "image") {
+				fileName += ".jpg"
+			} else if strings.Contains(message.MIMEType, "audio") {
+				fileName += ".ogg"
+			} else if strings.Contains(message.MIMEType, "video") {
+				fileName += ".mp4"
+			}
+		}
+		// Cambiar espacios por guiones bajos para evitar problemas en URLs
+		fileName = strings.ReplaceAll(fileName, " ", "_")
 	}
 
 	// Limpiar nombre de archivo para seguridad básica

@@ -10,6 +10,7 @@ import (
 	"harmony_api/ws"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -69,6 +70,8 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 		// ===========================================================
 		for _, l := range data.Leads {
 
+			l.PhoneNumber = strings.TrimPrefix(l.PhoneNumber, "+")
+
 			// Primero buscar si existe un case abierto para este número
 			var existingCase models.Case
 			err := tx.
@@ -91,6 +94,33 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 
 				channelIDStr := strconv.FormatUint(uint64(integration.ChannelID), 10)
 
+				finalAgentID := uint(data.ChangedBy)
+				agentAssigned := false
+
+				// Intento 1: Asignación directa en ChannelAgentClient
+				if l.ClientID != nil {
+					var channelAgentClient models.ChannelAgentClient
+					errAgent := tx.Where("department_id = ? AND client_id = ?", *integration.DepartmentID, *l.ClientID).First(&channelAgentClient).Error
+					if errAgent == nil {
+						finalAgentID = uint(channelAgentClient.AgentID)
+						agentAssigned = true
+					}
+				}
+
+				// Intento 2: Historial del cliente en el canal (último caso atendido)
+				if !agentAssigned {
+					var lastCase models.Case
+					errLastCase := tx.Where("channel_integration_id = ? AND sender_id = ?", integration.ChannelIntegrationID, l.PhoneNumber).Order("id desc").First(&lastCase).Error
+					if errLastCase == nil {
+						// Verificar si el agente asignado a ese caso previo sigue activo
+						var agent models.User
+						errUser := tx.Where("id = ?", lastCase.AgentID).First(&agent).Error
+						if errUser == nil && agent.IsActive {
+							finalAgentID = lastCase.AgentID
+						}
+					}
+				}
+
 				newCase := models.Case{
 					SenderId:             l.PhoneNumber,
 					ChannelID:            channelIDStr,
@@ -99,7 +129,7 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 					IsNonCommercial:      integration.IsNonCommercial,
 					DepartmentID:         *integration.DepartmentID,
 					ClientID:             Int64PtrToUintPtr(l.ClientID),
-					AgentID:              uint(data.ChangedBy),
+					AgentID:              finalAgentID,
 					Status:               "open",
 				}
 
@@ -292,6 +322,33 @@ func (r *CampaignPushingRepository) NewCaseFromTemplate(request dto.NewWhatsappC
 
 				number := strconv.FormatUint(uint64(integration.ChannelID), 10)
 
+				finalAgentID := uint(request.AgentID)
+				agentAssigned := false
+
+				// Intento 1: Asignación directa en ChannelAgentClient
+				if request.ClientID != nil {
+					var channelAgentClient models.ChannelAgentClient
+					errAgent := tx.Where("department_id = ? AND client_id = ?", *integration.DepartmentID, *request.ClientID).First(&channelAgentClient).Error
+					if errAgent == nil {
+						finalAgentID = uint(channelAgentClient.AgentID)
+						agentAssigned = true
+					}
+				}
+
+				// Intento 2: Historial del cliente en el canal (último caso atendido)
+				if !agentAssigned {
+					var lastCase models.Case
+					errLastCase := tx.Where("channel_integration_id = ? AND sender_id = ?", request.ChannelIntegrationID, request.ContactPhone).Order("id desc").First(&lastCase).Error
+					if errLastCase == nil {
+						// Verificar si el agente asignado a ese caso previo sigue activo
+						var agent models.User
+						errUser := tx.Where("id = ?", lastCase.AgentID).First(&agent).Error
+						if errUser == nil && agent.IsActive {
+							finalAgentID = lastCase.AgentID
+						}
+					}
+				}
+
 				newCase := models.Case{
 					SenderId:             request.ContactPhone,
 					ChannelID:            number,
@@ -300,7 +357,7 @@ func (r *CampaignPushingRepository) NewCaseFromTemplate(request dto.NewWhatsappC
 					IsNonCommercial:      integration.IsNonCommercial,
 					DepartmentID:         *integration.DepartmentID,
 					ClientID:             request.ClientID,
-					AgentID:              uint(request.AgentID),
+					AgentID:              finalAgentID,
 					Status:               "open",
 				}
 

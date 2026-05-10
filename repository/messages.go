@@ -341,7 +341,42 @@ func (r *MessageRepository) GetActiveCasesByAgentID(agentID string) ([]models.Ca
 	return activeCases, err
 }
 
+// Get closed cases for a specific sender ID (used in HarmonyCRM frontend history)
+func (r *MessageRepository) GetClosedCasesBySenderID(senderID string, channelIntegrationID string) ([]dto.ClosedCaseResponse, error) {
+	var closedCases []dto.ClosedCaseResponse
+
+	err := config.DB.Table("cases").
+		Select(`
+			cases.*, 
+			users.full_name as agent_name, 
+			channel_integrations.integration_name, 
+			channels.code as channel_type,
+			CASE 
+				WHEN channels.code = 'whatsapp' THEN 'assets/media/icons/channels/whatsapp.svg'
+				WHEN channels.code = 'messenger' THEN 'assets/media/icons/channels/messenger.svg'
+				WHEN channels.code = 'instagram' THEN 'assets/media/icons/channels/instagram.svg'
+				WHEN channels.code = 'web' THEN 'assets/media/icons/channels/web.svg'
+				ELSE 'assets/media/icons/channels/default.svg'
+			END as icon
+		`).
+		Joins("LEFT JOIN users ON users.id = cases.agent_id").
+		Joins("LEFT JOIN channel_integrations ON channel_integrations.id = cases.channel_integration_id").
+		Joins("LEFT JOIN channels ON channels.id = channel_integrations.channel_id").
+		Where("cases.sender_id = ? AND cases.channel_integration_id = ? AND cases.status = ?", senderID, channelIntegrationID, "closed").
+		Order("cases.created_at DESC").
+		Find(&closedCases).Error
+
+	return closedCases, err
+}
+
 func (r *MessageRepository) GetMessagesByCaseID(caseID string) ([]models.Message, error) {
+	var messages []models.Message
+	err := config.DB.Where("case_id = ?", caseID).Order("id ASC").Find(&messages).Error
+	return messages, err
+}
+
+// Ensure proper uint typing for our new closed cases endpoints
+func (r *MessageRepository) GetClosedCaseMessages(caseID uint) ([]models.Message, error) {
 	var messages []models.Message
 	err := config.DB.Where("case_id = ?", caseID).Order("id ASC").Find(&messages).Error
 	return messages, err

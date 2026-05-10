@@ -1,12 +1,15 @@
 package routes
 
 import (
+	"harmony_api/config"
 	"harmony_api/controllers"
 	"harmony_api/providers"
 	"harmony_api/repository"
 	"harmony_api/services"
 	"harmony_api/ws"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -43,6 +46,11 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 
 	// Inicializar rutas de mensajes
 	InitializeMessage(*api, hub, receiptAnalysisService)
+
+	// Inicializar rutas de casos cerrados por Sender ID
+	messageRepo := repository.MessageRepository{}
+	closedCasesController := controllers.NewClosedCasesController(&messageRepo)
+	RegisterClosedCasesRoutes(api, closedCasesController)
 
 	// Inicializar rutas de compañías
 	RegisterCompanyRoutes(api)
@@ -132,8 +140,25 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 
 	// Endpoint de verificación de estado
 	api.GET("/health", func(c *gin.Context) {
+		version := "3.50.0"
+		if versionBytes, err := os.ReadFile("version.txt"); err == nil {
+			version = strings.TrimSpace(string(versionBytes))
+		}
+
+		dbStatus := "Disconnected"
+		// Asumiendo que config.DB es la instancia *gorm.DB global
+		if sqlDB, err := config.DB.DB(); err == nil {
+			if err := sqlDB.Ping(); err == nil {
+				dbStatus = "Connected"
+			} else {
+				dbStatus = "Error: " + err.Error()
+			}
+		}
+
 		c.JSON(200, gin.H{
-			"status": "API is online V 2.0.11",
+			"status":   "API is online",
+			"version":  version,
+			"database": dbStatus,
 		})
 	})
 

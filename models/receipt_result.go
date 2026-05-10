@@ -3,9 +3,10 @@ package models
 import "time"
 
 type ReceiptResult struct {
-	ID     uint   `json:"id" gorm:"primaryKey;autoIncrement"`
-	CaseID uint   `json:"case_id" gorm:"index"`
-	Status string `json:"status" gorm:"type:varchar(30);default:'new'"`
+	ID        uint    `json:"id" gorm:"primaryKey;autoIncrement"`
+	CaseID    uint    `json:"case_id" gorm:"index"`
+	MessageID *uint64 `json:"message_id" gorm:"column:message_id"` // reference to the ws_messages or messages identifier
+	Status    string  `json:"status" gorm:"type:varchar(30);default:'new'"`
 
 	BankName        string `json:"bank_name" gorm:"type:varchar(100)"`
 	TransactionType string `json:"transaction_type" gorm:"type:varchar(100)"`

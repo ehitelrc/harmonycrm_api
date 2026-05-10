@@ -84,7 +84,7 @@ func (ctrl *ReceiptAnalysisController) AnalyzeAndSaveReceipt(c *gin.Context) {
 		}
 	}
 
-	record, err := receiptRepo.SaveReceiptResult(result, req.CaseID, customCreatedAt)
+	record, err := receiptRepo.SaveReceiptResult(result, req.CaseID, nil, customCreatedAt)
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error guardando recibo en base de datos", nil, err)
 		return

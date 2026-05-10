@@ -14,13 +14,14 @@ func NewReceiptRepository() *ReceiptRepository {
 	return &ReceiptRepository{}
 }
 
-func (r *ReceiptRepository) SaveReceiptResult(result *dto.ReceiptExtractionResult, caseID uint, createdAt *time.Time) (*models.ReceiptResult, error) {
+func (r *ReceiptRepository) SaveReceiptResult(result *dto.ReceiptExtractionResult, caseID uint, messageID *uint64, createdAt *time.Time) (*models.ReceiptResult, error) {
 
 	warningsJSON, _ := json.Marshal(result.Warnings)
 
 	record := models.ReceiptResult{
-		CaseID: caseID,
-		Status: "new",
+		CaseID:    caseID,
+		MessageID: messageID,
+		Status:    "new",
 
 		BankName:        result.BankName,
 		TransactionType: result.TransactionType,

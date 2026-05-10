@@ -88,7 +88,7 @@ func (s *ReceiptAnalysisService) AnalyzeFromText(ctx context.Context, ocrText st
 
 	// 6) Opcional:		// 4. Guardar en Base de Datos de resultados
 	if save && caseID != nil {
-		_, err := s.repo.SaveReceiptResult(result, *caseID, nil)
+		_, err := s.repo.SaveReceiptResult(result, *caseID, nil, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error guardando extracción de recibo: %w", err)
 		}

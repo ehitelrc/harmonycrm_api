@@ -94,9 +94,10 @@ func (p *MessageProcessor) processImage(
 			return
 		}
 
-		// Guardar el resultado en la base de datos de recibos
 		receiptRepo := repository.NewReceiptRepository()
-		record, err := receiptRepo.SaveReceiptResult(result, caseID, nil)
+
+		messageID := uint64(newMessage.ID)
+		record, err := receiptRepo.SaveReceiptResult(result, caseID, &messageID, nil)
 		if err != nil {
 			fmt.Println("❌ Error guardando recibo:", err)
 			return
