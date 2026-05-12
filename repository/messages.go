@@ -114,6 +114,20 @@ func (r *MessageRepository) CreateMessage(message models.IncomingMessage) (*mode
 			}
 		}
 
+		// Fallback: Si no tiene agente asignado, buscar el último agente que atendió a este sender_id
+		if newCase.AgentID == 0 {
+			var lastCase models.Case
+			lastErr := config.DB.
+				Where("sender_id = ? AND channel_id = ? AND agent_id IS NOT NULL AND agent_id != 0", message.SenderID, channnel.ChannelID).
+				Order("created_at DESC").
+				First(&lastCase).Error
+
+			if lastErr == nil && lastCase.AgentID != 0 {
+				fmt.Println("🔔 Fallback: Asignando último agente que atendió al contacto (sender_id):", lastCase.AgentID)
+				newCase.AgentID = lastCase.AgentID
+			}
+		}
+
 		// Si viene de QR, asignar company_id y campaign_id
 
 		if isQR {
@@ -338,14 +352,53 @@ func (r *MessageRepository) MarkMessagesAsReadByCaseID(caseID string) error {
 func (r *MessageRepository) GetActiveCasesByAgentID(agentID string) ([]models.CaseWithChannel, error) {
 	var activeCases []models.CaseWithChannel
 	err := config.DB.Where("agent_id = ? AND status = ?", agentID, "open").Find(&activeCases).Error
-	return activeCases, err
+	if err != nil {
+		return nil, err
+	}
+
+	var caseIDs []int
+	for _, c := range activeCases {
+		caseIDs = append(caseIDs, c.CaseID)
+	}
+
+	if len(caseIDs) > 0 {
+		var allTags []struct {
+			CaseID int
+			TagID  int
+			Name   string
+			Color  string
+			Icon   string
+		}
+
+		config.DB.Table("case_tags").
+			Select("case_tags.case_id, tags.id as tag_id, tags.name, tags.color, tags.icon").
+			Joins("JOIN tags ON tags.id = case_tags.tag_id").
+			Where("case_tags.case_id IN ?", caseIDs).
+			Scan(&allTags)
+
+		tagsMap := make(map[int][]models.Tag)
+		for _, t := range allTags {
+			tagsMap[t.CaseID] = append(tagsMap[t.CaseID], models.Tag{
+				ID:    uint(t.TagID),
+				Name:  t.Name,
+				Color: t.Color,
+				Icon:  t.Icon,
+			})
+		}
+
+		for i, c := range activeCases {
+			activeCases[i].Tags = tagsMap[c.CaseID]
+		}
+	}
+
+	return activeCases, nil
 }
 
 // Get closed cases for a specific sender ID (used in HarmonyCRM frontend history)
 func (r *MessageRepository) GetClosedCasesBySenderID(senderID string, channelIntegrationID string) ([]dto.ClosedCaseResponse, error) {
 	var closedCases []dto.ClosedCaseResponse
 
-	err := config.DB.Table("cases").
+	query := config.DB.Table("cases").
 		Select(`
 			cases.*, 
 			users.full_name as agent_name, 
@@ -362,9 +415,13 @@ func (r *MessageRepository) GetClosedCasesBySenderID(senderID string, channelInt
 		Joins("LEFT JOIN users ON users.id = cases.agent_id").
 		Joins("LEFT JOIN channel_integrations ON channel_integrations.id = cases.channel_integration_id").
 		Joins("LEFT JOIN channels ON channels.id = channel_integrations.channel_id").
-		Where("cases.sender_id = ? AND cases.channel_integration_id = ? AND cases.status = ?", senderID, channelIntegrationID, "closed").
-		Order("cases.created_at DESC").
-		Find(&closedCases).Error
+		Where("cases.sender_id = ? AND cases.status = ?", senderID, "closed")
+
+	if channelIntegrationID != "" {
+		query = query.Where("cases.channel_integration_id = ?", channelIntegrationID)
+	}
+
+	err := query.Order("cases.created_at DESC").Find(&closedCases).Error
 
 	return closedCases, err
 }

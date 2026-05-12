@@ -28,11 +28,6 @@ func (ctrl *ClosedCasesController) GetClosedCases(c *gin.Context) {
 		return
 	}
 
-	if channelIntegrationID == "" {
-		utils.Respond(c, http.StatusBadRequest, false, "Debe proveer un channel_integration_id", nil, nil)
-		return
-	}
-
 	cases, err := ctrl.repo.GetClosedCasesBySenderID(senderID, channelIntegrationID)
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error obteniendo los casos cerrados", nil, err)

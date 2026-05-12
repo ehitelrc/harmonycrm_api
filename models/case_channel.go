@@ -48,6 +48,8 @@ type CaseWithChannel struct {
 	PaymentFound *bool `json:"payment_found,omitempty" gorm:"column:payment_found"`
 
 	UnreadCount *int `json:"unread_count,omitempty" gorm:"column:unread_count"`
+
+	Tags []Tag `json:"tags,omitempty" gorm:"-"`
 }
 
 func (CaseWithChannel) TableName() string {

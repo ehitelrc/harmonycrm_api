@@ -136,6 +136,8 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 
 	RegisterUnreconciledPaymentsRoutes(api)
 
+	RegisterTagRoutes(api)
+
 	r.Static("/public", "./public")
 
 	// Endpoint de verificación de estado

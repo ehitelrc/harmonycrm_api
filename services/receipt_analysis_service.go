@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"harmony_api/dto"
 	"harmony_api/providers"
@@ -85,6 +86,15 @@ func (s *ReceiptAnalysisService) AnalyzeFromText(ctx context.Context, ocrText st
 	// 5) Opcional: normalizar montos (luego si quieres podemos agregar NormalizeAmount)
 	// result.Amount = utils.NormalizeAmount(result.Amount)
 	// result.AmountSent = utils.NormalizeAmount(result.AmountSent)
+
+	// Fix para comprobantes del BCR: Si toma un número de referencia de 8 dígitos pero existe uno de 25 terminado en esos 8 dígitos, se reemplaza.
+	if result.BankName == "BCR" && len(result.ReferenceNumber) == 8 {
+		re := regexp.MustCompile(`\d{17}` + regexp.QuoteMeta(result.ReferenceNumber))
+		matches := re.FindStringSubmatch(ocrText)
+		if len(matches) > 0 {
+			result.ReferenceNumber = matches[0]
+		}
+	}
 
 	// 6) Opcional:		// 4. Guardar en Base de Datos de resultados
 	if save && caseID != nil {
