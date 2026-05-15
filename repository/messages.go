@@ -1065,30 +1065,30 @@ func (r *MessageRepository) NewCaseFromTemplate(request dto.NewWhatsappCaseFromT
 			request.ChannelIntegrationID, request.ContactPhone, "open",
 		).First(&existingCase).Error
 
+		var caseIDToUse uint
+
 		if err == nil {
-			// Caso ya abierto → no crear uno nuevo
-			caseID = int64(existingCase.ID)
-			return nil
-		}
-
-		if err != gorm.ErrRecordNotFound {
-			return err
-		}
-
-		// 4. Crear nuevo caso usando datos de la integración
-		number := strconv.FormatUint(uint64(integration.ChannelID), 10)
-		newCase := models.Case{
-			SenderId:             request.ContactPhone,
-			ChannelID:            number,
-			CompanyID:            integration.CompanyID,
-			ChannelIntegrationID: integration.ChannelIntegrationID,
-			IsNonCommercial:      integration.IsNonCommercial,
-			DepartmentID:         *integration.DepartmentID,
-			ClientID:             request.ClientID,
-			AgentID:              uint(request.AgentID),
-			Status:               "open",
-		}
-		if err := tx.Create(&newCase).Error; err != nil {
+			// Caso ya abierto → usar el existente
+			caseIDToUse = existingCase.ID
+		} else if err == gorm.ErrRecordNotFound {
+			// 4. Crear nuevo caso usando datos de la integración
+			number := strconv.FormatUint(uint64(integration.ChannelID), 10)
+			newCase := models.Case{
+				SenderId:             request.ContactPhone,
+				ChannelID:            number,
+				CompanyID:            integration.CompanyID,
+				ChannelIntegrationID: integration.ChannelIntegrationID,
+				IsNonCommercial:      integration.IsNonCommercial,
+				DepartmentID:         *integration.DepartmentID,
+				ClientID:             request.ClientID,
+				AgentID:              uint(request.AgentID),
+				Status:               "open",
+			}
+			if err := tx.Create(&newCase).Error; err != nil {
+				return err
+			}
+			caseIDToUse = newCase.ID
+		} else {
 			return err
 		}
 
@@ -1100,7 +1100,7 @@ func (r *MessageRepository) NewCaseFromTemplate(request dto.NewWhatsappCaseFromT
 
 		// 6. Crear mensaje inicial en DB
 		newMessage := models.Message{
-			CaseID:      newCase.ID,
+			CaseID:      caseIDToUse,
 			SenderType:  "agent",
 			MessageType: "text",
 			TextContent: bodyText,
@@ -1110,7 +1110,7 @@ func (r *MessageRepository) NewCaseFromTemplate(request dto.NewWhatsappCaseFromT
 			return err
 		}
 
-		caseID = int64(newCase.ID)
+		caseID = int64(caseIDToUse)
 
 		// 7. Despachar según el canal de la integración
 		channelCode := ""

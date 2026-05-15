@@ -23,4 +23,7 @@ func RegisterTemplateRoutes(r *gin.RouterGroup) {
 	templates.GET("/integration/:id", ctrl.GetTemplatesByIntegration)
 	templates.POST("/integration/:id", ctrl.CreateTemplateIntegration)
 	templates.DELETE("/integration/:id", ctrl.DeleteTemplateIntegration)
+
+	// Fetch template preview from Meta
+	templates.GET("/preview/:template_name/:integration_id", ctrl.PreviewMetaTemplate)
 }

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"harmony_api/config"
 	"harmony_api/models"
 	"harmony_api/repository"
 	"harmony_api/utils"
@@ -234,4 +235,29 @@ func (c *TemplateController) DeleteTemplateIntegration(ctx *gin.Context) {
 	}
 
 	utils.Respond(ctx, http.StatusOK, true, "Plantilla desasignada de la integración correctamente", nil, nil)
+}
+
+func (c *TemplateController) PreviewMetaTemplate(ctx *gin.Context) {
+	templateName := ctx.Param("template_name")
+	integrationIDParam := ctx.Param("integration_id")
+	integrationID, err := strconv.Atoi(integrationIDParam)
+	if err != nil {
+		utils.Respond(ctx, http.StatusBadRequest, false, "ID de integración inválido", nil, err)
+		return
+	}
+
+	// Obtener la integración para sacar el access token
+	var integration models.ChannelIntegration
+	if err := config.DB.Where("id = ?", integrationID).First(&integration).Error; err != nil {
+		utils.Respond(ctx, http.StatusNotFound, false, "Integración no encontrada", nil, err)
+		return
+	}
+
+	bodyText, err := repository.GetTemplateBodyFromMeta(templateName, integration.AccessToken)
+	if err != nil {
+		utils.Respond(ctx, http.StatusInternalServerError, false, "Error consultando a Meta", nil, err)
+		return
+	}
+
+	utils.Respond(ctx, http.StatusOK, true, "Plantilla obtenida de Meta", bodyText, nil)
 }

@@ -313,76 +313,84 @@ func (r *CampaignPushingRepository) NewCaseFromTemplate(request dto.NewWhatsappC
 		}
 
 		// Get case by channel_integration_id & sender_id and status open
-		var newCase models.Case
+		var existingCase models.Case
+		var caseIDToUse uint
 
-		if err := tx.Debug().Where("channel_integration_id = ? AND sender_id = ? AND status = ?", request.ChannelIntegrationID, request.ContactPhone, "open").First(&newCase).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
+		err := tx.Debug().Where("channel_integration_id = ? AND sender_id = ? AND status = ?", request.ChannelIntegrationID, request.ContactPhone, "open").First(&existingCase).Error
+		if err == nil {
+			caseIDToUse = existingCase.ID
+		} else if err == gorm.ErrRecordNotFound {
 
-				// Create new case
+			// Create new case
 
-				number := strconv.FormatUint(uint64(integration.ChannelID), 10)
+			number := strconv.FormatUint(uint64(integration.ChannelID), 10)
 
-				finalAgentID := uint(request.AgentID)
-				agentAssigned := false
+			finalAgentID := uint(request.AgentID)
+			agentAssigned := false
 
-				// Intento 1: Asignación directa en ChannelAgentClient
-				if request.ClientID != nil {
-					var channelAgentClient models.ChannelAgentClient
-					errAgent := tx.Where("department_id = ? AND client_id = ?", *integration.DepartmentID, *request.ClientID).First(&channelAgentClient).Error
-					if errAgent == nil {
-						finalAgentID = uint(channelAgentClient.AgentID)
-						agentAssigned = true
+			// Intento 1: Asignación directa en ChannelAgentClient
+			if request.ClientID != nil {
+				var channelAgentClient models.ChannelAgentClient
+				errAgent := tx.Where("department_id = ? AND client_id = ?", *integration.DepartmentID, *request.ClientID).First(&channelAgentClient).Error
+				if errAgent == nil {
+					finalAgentID = uint(channelAgentClient.AgentID)
+					agentAssigned = true
+				}
+			}
+
+			// Intento 2: Historial del cliente en el canal (último caso atendido)
+			if !agentAssigned {
+				var lastCase models.Case
+				errLastCase := tx.Where("channel_integration_id = ? AND sender_id = ?", request.ChannelIntegrationID, request.ContactPhone).Order("id desc").First(&lastCase).Error
+				if errLastCase == nil {
+					// Verificar si el agente asignado a ese caso previo sigue activo
+					var agent models.User
+					errUser := tx.Where("id = ?", lastCase.AgentID).First(&agent).Error
+					if errUser == nil && agent.IsActive {
+						finalAgentID = lastCase.AgentID
 					}
 				}
+			}
 
-				// Intento 2: Historial del cliente en el canal (último caso atendido)
-				if !agentAssigned {
-					var lastCase models.Case
-					errLastCase := tx.Where("channel_integration_id = ? AND sender_id = ?", request.ChannelIntegrationID, request.ContactPhone).Order("id desc").First(&lastCase).Error
-					if errLastCase == nil {
-						// Verificar si el agente asignado a ese caso previo sigue activo
-						var agent models.User
-						errUser := tx.Where("id = ?", lastCase.AgentID).First(&agent).Error
-						if errUser == nil && agent.IsActive {
-							finalAgentID = lastCase.AgentID
-						}
-					}
-				}
+			newCase := models.Case{
+				SenderId:             request.ContactPhone,
+				ChannelID:            number,
+				CompanyID:            integration.CompanyID,
+				ChannelIntegrationID: integration.ChannelIntegrationID,
+				IsNonCommercial:      integration.IsNonCommercial,
+				DepartmentID:         *integration.DepartmentID,
+				ClientID:             request.ClientID,
+				AgentID:              finalAgentID,
+				Status:               "open",
+			}
 
-				newCase := models.Case{
-					SenderId:             request.ContactPhone,
-					ChannelID:            number,
-					CompanyID:            integration.CompanyID,
-					ChannelIntegrationID: integration.ChannelIntegrationID,
-					IsNonCommercial:      integration.IsNonCommercial,
-					DepartmentID:         *integration.DepartmentID,
-					ClientID:             request.ClientID,
-					AgentID:              finalAgentID,
-					Status:               "open",
-				}
+			if err := tx.Create(&newCase).Error; err != nil {
+				return err
+			}
+			caseIDToUse = newCase.ID
 
-				if err := tx.Create(&newCase).Error; err != nil {
-					return err
-				}
+		} else {
+			return err
+		}
 
-				bodyText, err := GetTemplateBodyFromMeta(*template.TemplateName, *template.AccessToken)
-				if err != nil {
-					bodyText = "Apertura mediante template"
-				}
+		bodyText, err := GetTemplateBodyFromMeta(*template.TemplateName, *template.AccessToken)
+		if err != nil {
+			bodyText = "Apertura mediante template"
+		}
 
-				newMessage := models.Message{
-					CaseID:      newCase.ID,
-					SenderType:  "agent",
-					MessageType: "text",
-					TextContent: bodyText,
-					MessageRead: true,
-				}
+		newMessage := models.Message{
+			CaseID:      caseIDToUse,
+			SenderType:  "agent",
+			MessageType: "text",
+			TextContent: bodyText,
+			MessageRead: true,
+		}
 
-				if err := tx.Create(&newMessage).Error; err != nil {
-					return err
-				}
+		if err := tx.Create(&newMessage).Error; err != nil {
+			return err
+		}
 
-				caseID = int64(newCase.ID)
+		caseID = int64(caseIDToUse)
 
 				// recipients := []models.TemplateRecipient{
 				// 	{
@@ -415,10 +423,7 @@ func (r *CampaignPushingRepository) NewCaseFromTemplate(request dto.NewWhatsappC
 					// No retornamos error fatal para no hacer rollback de todo el caso
 				}
 
-			} else {
-				return err
-			}
-		}
+
 
 		return nil
 	})
