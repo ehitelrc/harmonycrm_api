@@ -113,6 +113,8 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 
 	RegisterCaseDashboardRoutes(api)
 
+	RegisterCasesBulkRoutes(api)
+
 	RegisterWebSocketTestRoutes(api, hub)
 
 	RegisterCustomListRoutes(api)

@@ -22,6 +22,8 @@ type Case struct {
 	ChannelIntegrationID uint       `json:"channel_integration_id"`
 	IsNonCommercial      bool       `gorm:"default:false" json:"is_non_commercial"`
 	ManualStartingLead   bool       `gorm:"default:false" json:"manual_starting_lead"`
+	PaymentFound         bool       `gorm:"default:false" json:"payment_found"`
+	ClosedInBulk         bool       `gorm:"default:false" json:"closed_in_bulk"`
 	Tags                 []Tag      `gorm:"many2many:case_tags;" json:"tags"`
 }
 
