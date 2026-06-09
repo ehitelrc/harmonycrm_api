@@ -127,6 +127,7 @@ func (c *DepartmentController) Create(ctx *gin.Context) {
 
 	utils.InvalidateDepartmentsCache()
 	utils.InvalidateDepartmentByID(dept.ID)
+	utils.InvalidateDepartmentsByCompany(dept.CompanyID)
 
 	utils.Respond(ctx, http.StatusCreated, true, "Departamento creado correctamente", dept, nil)
 }
@@ -145,6 +146,7 @@ func (c *DepartmentController) Update(ctx *gin.Context) {
 
 	utils.InvalidateDepartmentsCache()
 	utils.InvalidateDepartmentByID(dept.ID)
+	utils.InvalidateDepartmentsByCompany(dept.CompanyID)
 
 	utils.Respond(ctx, http.StatusOK, true, "Departamento actualizado correctamente", dept, nil)
 }
@@ -156,6 +158,12 @@ func (c *DepartmentController) Delete(ctx *gin.Context) {
 		return
 	}
 
+	dept, err := c.repo.GetByID(uint(id))
+	if err != nil {
+		utils.Respond(ctx, http.StatusNotFound, false, "Departamento no encontrado", nil, err)
+		return
+	}
+
 	if err := c.repo.Delete(uint(id)); err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al eliminar departamento", nil, err)
 		return
@@ -163,6 +171,7 @@ func (c *DepartmentController) Delete(ctx *gin.Context) {
 
 	utils.InvalidateDepartmentsCache()
 	utils.InvalidateDepartmentByID(uint(id))
+	utils.InvalidateDepartmentsByCompany(dept.CompanyID)
 
 	utils.Respond(ctx, http.StatusOK, true, "Departamento eliminado correctamente", nil, nil)
 }

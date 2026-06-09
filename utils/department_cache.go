@@ -72,3 +72,7 @@ func InvalidateDepartmentsCache() {
 func InvalidateDepartmentByID(id uint) {
 	DeleteCache(DepartmentByIDKey(id))
 }
+
+func InvalidateDepartmentsByCompany(companyID uint) {
+	DeleteCache(DepartmentsByCompanyKey(companyID))
+}

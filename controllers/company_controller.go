@@ -77,6 +77,7 @@ func (c *CompanyController) Create(ctx *gin.Context) {
 
 	utils.InvalidateCompaniesCache()
 	utils.InvalidateCompanyByID(company.ID)
+	utils.AppCache.Flush()
 
 	utils.Respond(ctx, http.StatusCreated, true, "Compañía creada correctamente", company, nil)
 }
@@ -95,6 +96,7 @@ func (c *CompanyController) Update(ctx *gin.Context) {
 
 	utils.InvalidateCompaniesCache()
 	utils.InvalidateCompanyByID(company.ID)
+	utils.AppCache.Flush()
 
 	utils.Respond(ctx, http.StatusOK, true, "Compañía actualizada correctamente", company, nil)
 }
@@ -113,6 +115,7 @@ func (c *CompanyController) Delete(ctx *gin.Context) {
 
 	utils.InvalidateCompaniesCache()
 	utils.InvalidateCompanyByID(uint(id))
+	utils.AppCache.Flush()
 
 	utils.Respond(ctx, http.StatusOK, true, "Compañía eliminada correctamente", nil, nil)
 }
