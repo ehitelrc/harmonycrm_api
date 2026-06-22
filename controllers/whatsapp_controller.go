@@ -35,9 +35,19 @@ func (w *WhatsAppWebhookController) Verify(c *gin.Context) {
 	token := c.Query("hub.verify_token")
 	challenge := c.Query("hub.challenge")
 
+	fmt.Println("=========================================")
+	fmt.Println("🔍 WEBHOOK VERIFICATION (WHATSAPP):")
+	fmt.Printf("   Mode: %s\n", mode)
+	fmt.Printf("   Token: %s\n", token)
+	fmt.Printf("   Challenge: %s\n", challenge)
+	fmt.Printf("   Expected Token: %s\n", verifyToken)
+	fmt.Println("=========================================")
+
 	if mode == "subscribe" && token == verifyToken {
+		fmt.Println("✅ Verificación exitosa")
 		c.String(http.StatusOK, challenge)
 	} else {
+		fmt.Println("❌ Error de verificación: Token inválido")
 		c.JSON(http.StatusForbidden, gin.H{"error": "Token inválido"})
 	}
 }
