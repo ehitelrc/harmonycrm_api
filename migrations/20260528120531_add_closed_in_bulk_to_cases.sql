@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-ALTER TABLE cases ADD COLUMN closed_in_bulk BOOLEAN DEFAULT false;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS closed_in_bulk BOOLEAN DEFAULT false;
 -- +goose StatementEnd
 
 -- +goose Down

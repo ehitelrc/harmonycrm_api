@@ -35,6 +35,12 @@ func (r *TagRepository) GetAll() ([]models.Tag, error) {
 	return tags, err
 }
 
+func (r *TagRepository) GetByDepartment(deptID uint) ([]models.Tag, error) {
+	var tags []models.Tag
+	err := config.DB.Where("department_id = ? OR department_id IS NULL", deptID).Find(&tags).Error
+	return tags, err
+}
+
 func (r *TagRepository) AssignToCase(caseID uint, tagID uint) error {
 	// Usamos SQL nativo para insertar en case_tags
 	return config.DB.Exec("INSERT INTO case_tags (case_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING", caseID, tagID).Error

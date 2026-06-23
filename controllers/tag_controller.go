@@ -28,9 +28,10 @@ func (c *TagController) Create(ctx *gin.Context) {
 	}
 
 	tag := &models.Tag{
-		Name:      req.Name,
-		Color:     req.Color,
-		Icon:      req.Icon,
+		Name:         req.Name,
+		Color:        req.Color,
+		Icon:         req.Icon,
+		DepartmentID: req.DepartmentID,
 	}
 
 	if err := c.repo.Create(tag); err != nil {
@@ -70,6 +71,9 @@ func (c *TagController) Update(ctx *gin.Context) {
 	if req.Icon != "" {
 		tag.Icon = req.Icon
 	}
+	if req.DepartmentID != nil {
+		tag.DepartmentID = req.DepartmentID
+	}
 
 	if err := c.repo.Update(tag); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating tag"})
@@ -96,7 +100,21 @@ func (c *TagController) Delete(ctx *gin.Context) {
 }
 
 func (c *TagController) GetAll(ctx *gin.Context) {
-	tags, err := c.repo.GetAll()
+	deptIDStr := ctx.Query("department_id")
+	var tags []models.Tag
+	var err error
+
+	if deptIDStr != "" {
+		deptID, parseErr := strconv.ParseUint(deptIDStr, 10, 32)
+		if parseErr != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid department ID"})
+			return
+		}
+		tags, err = c.repo.GetByDepartment(uint(deptID))
+	} else {
+		tags, err = c.repo.GetAll()
+	}
+
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving tags"})
 		return
