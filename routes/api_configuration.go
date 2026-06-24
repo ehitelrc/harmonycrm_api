@@ -133,6 +133,7 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 	RegisterMessengerWebHookRoutes(api, hub, receiptAnalysisService)
 
 	RegisterTemplateRoutes(api)
+	RegisterTemplateReportRoutes(api)
 
 	RegisterPaymentValidationRoutes(api)
 
