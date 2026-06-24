@@ -93,3 +93,40 @@ func (r *CaseDashboardRepository) GetAllDashboards() ([]models.CompanyDashboard,
 	}
 	return dashboards, nil
 }
+
+// GetCasesByStatus obtiene los casos detallados filtrados por compañía, departamento, estado y búsqueda
+func (r *CaseDashboardRepository) GetCasesByStatus(companyID int64, departmentID *int64, status string, search string, page int, limit int) ([]models.CaseWithChannel, int64, error) {
+	var cases []models.CaseWithChannel
+	var total int64
+
+	db := config.DB.Model(&models.CaseWithChannel{}).Where("company_id = ?", companyID)
+
+	if departmentID != nil && *departmentID > 0 {
+		db = db.Where("department_id = ?", *departmentID)
+	}
+
+	switch status {
+	case "open":
+		db = db.Where("status = ?", "open")
+	case "closed":
+		db = db.Where("status = ?", "closed")
+	case "unanswered":
+		db = db.Where("status IN ('open', 'in_progress') AND last_message_sender_type = 'client'")
+	}
+
+	if search != "" {
+		searchQuery := "%" + search + "%"
+		db = db.Where("client_name ILIKE ? OR sender_id ILIKE ? OR last_message_text ILIKE ? OR agent_full_name ILIKE ? OR CAST(case_id AS TEXT) LIKE ?", searchQuery, searchQuery, searchQuery, searchQuery, "%"+search+"%")
+	}
+
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	if err := db.Order("created_at DESC").Limit(limit).Offset(offset).Find(&cases).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return cases, total, nil
+}

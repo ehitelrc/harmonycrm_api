@@ -11,6 +11,7 @@ func RegisterCaseDashboardRoutes(r *gin.RouterGroup) {
 
 	r.GET("/case_dashboard/company/:company_id", ctrl.GetCompanyDashboard)
 	r.GET("/case_dashboard/company/:company_id/department/:department_id", ctrl.GetDepartmentDashboard)
+	r.GET("/case_dashboard/company/:company_id/cases", ctrl.GetCasesByStatus)
 
 	// By company and user
 	r.GET("/case_dashboard/company/:company_id/user/:user_id", ctrl.GetUserDashboard)

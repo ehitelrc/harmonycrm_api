@@ -88,3 +88,51 @@ func (c *CaseDashboardController) GetUserDashboard(ctx *gin.Context) {
 	utils.Respond(ctx, http.StatusOK, true, "Dashboard del usuario obtenido correctamente", dashboard, nil)
 
 }
+
+func (c *CaseDashboardController) GetCasesByStatus(ctx *gin.Context) {
+	companyIDParam := ctx.Param("company_id")
+
+	companyID, err := strconv.ParseInt(companyIDParam, 10, 64)
+	if err != nil {
+		utils.Respond(ctx, http.StatusBadRequest, false, "ID de compañía inválido", nil, err)
+		return
+	}
+
+	status := ctx.Query("status")
+	search := ctx.Query("search")
+	deptIDStr := ctx.Query("department_id")
+	var departmentID *int64
+	if deptIDStr != "" {
+		if dId, err := strconv.ParseInt(deptIDStr, 10, 64); err == nil && dId > 0 {
+			departmentID = &dId
+		}
+	}
+
+	pageStr := ctx.DefaultQuery("page", "1")
+	limitStr := ctx.DefaultQuery("limit", "10")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+
+	cases, total, err := c.repo.GetCasesByStatus(companyID, departmentID, status, search, page, limit)
+	if err != nil {
+		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener casos", nil, err)
+		return
+	}
+
+	response := gin.H{
+		"cases": cases,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	}
+
+	utils.Respond(ctx, http.StatusOK, true, "Casos obtenidos correctamente", response, nil)
+}

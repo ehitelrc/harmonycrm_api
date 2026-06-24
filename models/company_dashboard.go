@@ -15,6 +15,7 @@ type CompanyDashboard struct {
 	ClosedToday       int64            `json:"closed_today" gorm:"column:closed_today"`
 	OpenedToday       int64            `json:"opened_today" gorm:"column:opened_today"`
 	CancelledCases    int64            `json:"cancelled_cases" gorm:"column:cancelled_cases"`
+	UnansweredCases   int64            `json:"unanswered_cases" gorm:"column:unanswered_cases"`
 	UnassignedAgents  int64            `json:"unassigned_agents" gorm:"column:unassigned_agents"`
 	UnassignedClients int64            `json:"unassigned_clients" gorm:"column:unassigned_clients"`
 	AvgCloseHours     float64          `json:"avg_close_hours" gorm:"column:avg_close_hours"`
@@ -52,9 +53,12 @@ type CaseAgentStat struct {
 
 // OldestOpenCase representa los casos abiertos más antiguos.
 type OldestOpenCase struct {
-	CaseID     int64     `json:"case_id"`
-	ClientName *string   `json:"client_name"`
-	CreatedAt  *SafeTime `json:"created_at"` // ← reemplaza *time.Time por *SafeTime
+	CaseID                int64     `json:"case_id"`
+	ClientName            *string   `json:"client_name"`
+	ClientPhone           *string   `json:"client_phone"`
+	CreatedAt             *SafeTime `json:"created_at"`
+	LastMessageAt         *SafeTime `json:"last_message_at"`
+	LastMessageSenderType *string   `json:"last_message_sender_type"`
 }
 
 //
