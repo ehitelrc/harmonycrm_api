@@ -47,10 +47,11 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 		// ===========================================================
 		if data.CampaignID != nil {
 			header := models.CampaignWhatsappPush{
-				CampaignID:  data.CampaignID,
-				Description: data.Description,
-				TemplateID:  data.TemplateID,
-				ChangedBy:   data.ChangedBy,
+				CampaignID:           data.CampaignID,
+				Description:          data.Description,
+				TemplateID:           data.TemplateID,
+				ChangedBy:            data.ChangedBy,
+				ChannelIntegrationID: data.ChannelIntegrationID,
 			}
 
 			if err := tx.Create(&header).Error; err != nil {

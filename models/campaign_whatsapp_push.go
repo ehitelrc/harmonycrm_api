@@ -3,12 +3,13 @@ package models
 import "time"
 
 type CampaignWhatsappPush struct {
-	ID          int64     `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
-	CampaignID  *int64    `json:"campaign_id" gorm:"column:campaign_id"`
-	Description string    `json:"description" gorm:"column:description;size:50;not null"`
-	TemplateID  int64     `json:"template_id" gorm:"column:template_id;not null"`
-	CreatedAt   time.Time `json:"created_at" gorm:"column:created_at;autoCreateTime"`
-	ChangedBy   int       `json:"changed_by" gorm:"column:changed_by;index"`
+	ID                   int64     `json:"id" gorm:"column:id;primaryKey;autoIncrement"`
+	CampaignID           *int64    `json:"campaign_id" gorm:"column:campaign_id"`
+	Description          string    `json:"description" gorm:"column:description;size:50;not null"`
+	TemplateID           int64     `json:"template_id" gorm:"column:template_id;not null"`
+	CreatedAt            time.Time `json:"created_at" gorm:"column:created_at;autoCreateTime"`
+	ChangedBy            int       `json:"changed_by" gorm:"column:changed_by;index"`
+	ChannelIntegrationID *int64    `json:"channel_integration_id" gorm:"column:channel_integration_id"`
 }
 
 // TableName especifica el nombre exacto de la tabla en la BD
