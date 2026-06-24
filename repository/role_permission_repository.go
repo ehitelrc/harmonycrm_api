@@ -122,6 +122,6 @@ func (r *RolePermissionRepository) ReplaceRolePermissions(roleID uint, permissio
 // GetRolePermissionsViewByRole obtiene los permisos de un rol con info adicional de la vista
 func (r *RolePermissionRepository) GetViewByRole(roleID uint) ([]models.RolePermissionView, error) {
 	var rows []models.RolePermissionView
-	err := config.DB.Where("role_id = ?", roleID).Find(&rows).Error
+	err := config.DB.Where("role_id = ?", roleID).Order("description ASC").Find(&rows).Error
 	return rows, err
 }
