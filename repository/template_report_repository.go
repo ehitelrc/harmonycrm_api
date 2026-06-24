@@ -28,7 +28,8 @@ func (r *TemplateReportRepository) GetTemplateReport(companyID int64) (*models.T
 			COUNT(l.id) FILTER (WHERE m.status NOT IN ('failed', 'error') AND m.has_error = false AND m.id IS NOT NULL) AS successful_sends,
 			COUNT(l.id) FILTER (WHERE m.status IN ('failed', 'error') OR m.has_error = true OR m.id IS NULL) AS failed_sends,
 			ci.department_id AS department_id,
-			COALESCE(d.name, 'Sin Departamento') AS department_name
+			COALESCE(d.name, 'Sin Departamento') AS department_name,
+			p.channel_integration_id AS channel_integration_id
 		FROM campaign_whatsapp_push p
 		JOIN users u ON u.id = p.changed_by
 		JOIN message_templates t ON t.id = p.template_id
@@ -39,7 +40,7 @@ func (r *TemplateReportRepository) GetTemplateReport(companyID int64) (*models.T
 		JOIN channel_integrations ci ON ci.id = p.channel_integration_id
 		LEFT JOIN departments d ON d.id = ci.department_id
 		WHERE ci.company_id = ?
-		GROUP BY p.id, p.description, u.full_name, t.template_name, p.created_at, ci.department_id, d.name
+		GROUP BY p.id, p.description, u.full_name, t.template_name, p.created_at, ci.department_id, d.name, p.channel_integration_id
 		ORDER BY p.created_at DESC
 	`
 	if err := config.DB.Raw(bulkSQL, companyID).Scan(&bulkSends).Error; err != nil {
@@ -57,7 +58,8 @@ func (r *TemplateReportRepository) GetTemplateReport(companyID int64) (*models.T
 			c.sender_id AS client_phone,
 			COALESCE(m.status, 'sent') AS status,
 			c.department_id AS department_id,
-			COALESCE(d.name, 'Sin Departamento') AS department_name
+			COALESCE(d.name, 'Sin Departamento') AS department_name,
+			c.channel_integration_id AS channel_integration_id
 		FROM messages m
 		JOIN cases c ON c.id = m.case_id
 		JOIN message_templates t ON t.id = m.template_id
