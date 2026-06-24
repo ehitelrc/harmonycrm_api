@@ -15,6 +15,8 @@ func RegisterTemplateRoutes(r *gin.RouterGroup) {
 	templates.POST("/", ctrl.CreateTemplate)
 	templates.PUT("/:id", ctrl.UpdateTemplate)
 	templates.DELETE("/:id", ctrl.DeleteTemplate)
+	templates.POST("/:id/register-meta", ctrl.RegisterMetaTemplate)
+	templates.POST("/:id/sync-meta", ctrl.SyncMetaTemplate)
 
 	// Integrations linked to a specific template (is_linked view)
 	templates.GET("/:id/integrations", ctrl.GetIntegrationsForTemplate)

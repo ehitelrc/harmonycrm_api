@@ -35,7 +35,7 @@ func (r *OcrReportRepository) GetOcrReport(companyID int64, startDate, endDate s
 		dateFilterReceipts = " AND rr.created_at >= ? AND rr.created_at <= ?"
 		argsReceipts = append(argsReceipts, startDate+" 00:00:00", endDate+" 23:59:59.999999")
 
-		dateFilterReceiptsLeftJoin = " AND rr.created_at >= ? AND rr.created_at <= ?"
+		dateFilterReceiptsLeftJoin = " AND ocr_date >= ? AND ocr_date <= ?"
 		argsReceiptsLeftJoin = append(argsReceiptsLeftJoin, startDate+" 00:00:00", endDate+" 23:59:59.999999")
 	} else if startDate != "" {
 		dateFilterCases = " AND created_at >= ?"
@@ -44,7 +44,7 @@ func (r *OcrReportRepository) GetOcrReport(companyID int64, startDate, endDate s
 		dateFilterReceipts = " AND rr.created_at >= ?"
 		argsReceipts = append(argsReceipts, startDate+" 00:00:00")
 
-		dateFilterReceiptsLeftJoin = " AND rr.created_at >= ?"
+		dateFilterReceiptsLeftJoin = " AND ocr_date >= ?"
 		argsReceiptsLeftJoin = append(argsReceiptsLeftJoin, startDate+" 00:00:00")
 	}
 
@@ -79,9 +79,18 @@ func (r *OcrReportRepository) GetOcrReport(companyID int64, startDate, endDate s
 		JOIN cases c ON c.id = rr.case_id
 		LEFT JOIN erp_payment_confirmation epc ON epc.reference_number = rr.reference_number
 		WHERE c.company_id = ?` + dateFilterReceipts
-	if err := config.DB.Raw(receiptMatchSQL, argsReceipts...).Scan(&summary).Error; err != nil {
+	
+	var matchStats struct {
+		TotalOcrReceipts  int64 `gorm:"column:total_ocr_receipts"`
+		MatchedReceipts   int64 `gorm:"column:matched_receipts"`
+		UnmatchedReceipts int64 `gorm:"column:unmatched_receipts"`
+	}
+	if err := config.DB.Raw(receiptMatchSQL, argsReceipts...).Scan(&matchStats).Error; err != nil {
 		return nil, err
 	}
+	summary.TotalOcrReceipts = matchStats.TotalOcrReceipts
+	summary.MatchedReceipts = matchStats.MatchedReceipts
+	summary.UnmatchedReceipts = matchStats.UnmatchedReceipts
 
 	// 4. Distribution of OCR messages per case
 	distSQL := `

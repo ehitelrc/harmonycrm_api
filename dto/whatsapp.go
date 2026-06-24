@@ -25,6 +25,13 @@ type WhatsAppValue struct {
 	Contacts         []WhatsAppContact `json:"contacts"`
 	Messages         []WhatsAppMessage `json:"messages"`
 	Statuses         []WhatsAppStatus  `json:"statuses,omitempty"`
+
+	// Message Template Status Update fields
+	Event                   string      `json:"event,omitempty"`
+	MessageTemplateID       interface{} `json:"message_template_id,omitempty"` // Can be string or int64 from Meta
+	MessageTemplateName     string      `json:"message_template_name,omitempty"`
+	MessageTemplateLanguage string      `json:"message_template_language,omitempty"`
+	Reason                  string      `json:"reason,omitempty"`
 }
 
 type WhatsAppStatus struct {

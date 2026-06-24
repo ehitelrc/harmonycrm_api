@@ -11,6 +11,7 @@ func RegisterCampaignRoutes(r *gin.RouterGroup) {
 
 	r.GET("/campaigns/company/:company_id", ctrl.GetByCompany)
 	r.GET("/campaigns/:id", ctrl.GetByID)
+	r.GET("/campaigns/:id/reach", ctrl.GetReachReport)
 	r.POST("/campaigns", ctrl.Create)
 	r.PUT("/campaigns", ctrl.Update) // objeto completo con id
 	r.DELETE("/campaigns/:id", ctrl.Delete)

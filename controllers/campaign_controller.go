@@ -91,3 +91,20 @@ func (cc *CampaignController) Delete(c *gin.Context) {
 	}
 	utils.Respond(c, http.StatusOK, true, "Campaña eliminada correctamente", nil, nil)
 }
+
+// GET /campaigns/:id/reach
+func (cc *CampaignController) GetReachReport(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "ID de campaña inválido", nil, err)
+		return
+	}
+
+	report, err := cc.repo.GetReachReport(uint(id))
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener reporte de alcance de campaña", nil, err)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, true, "Reporte de alcance obtenido correctamente", report, nil)
+}

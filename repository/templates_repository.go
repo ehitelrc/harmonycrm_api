@@ -4,6 +4,8 @@ import (
 	"errors"
 	"harmony_api/config"
 	"harmony_api/models"
+
+	"gorm.io/gorm"
 )
 
 type TemplateRepository struct{}
@@ -31,7 +33,7 @@ func (r *TemplateRepository) GetAll(channelID *uint) ([]models.MessageTemplate, 
 
 func (r *TemplateRepository) GetByID(id uint) (*models.MessageTemplate, error) {
 	var template models.MessageTemplate
-	err := config.DB.Preload("Channel").First(&template, id).Error
+	err := config.DB.First(&template, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +49,14 @@ func (r *TemplateRepository) Update(id uint, payload map[string]interface{}) err
 }
 
 func (r *TemplateRepository) Delete(id uint) error {
-	return config.DB.Delete(&models.MessageTemplate{}, id).Error
+	return config.DB.Transaction(func(tx *gorm.DB) error {
+		// 1. Delete associated integration templates links first
+		if err := tx.Where("template_id = ?", id).Delete(&models.IntegrationTemplate{}).Error; err != nil {
+			return err
+		}
+		// 2. Delete the template itself
+		return tx.Delete(&models.MessageTemplate{}, id).Error
+	})
 }
 
 // ---- Integration-Template relations ----

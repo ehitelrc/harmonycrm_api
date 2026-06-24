@@ -231,12 +231,54 @@ func (w *WhatsAppWebhookController) Receive(c *gin.Context) {
 	fmt.Println("=========================================")
 
 	if len(req.Entry) > 0 && len(req.Entry[0].Changes) > 0 {
-		change := req.Entry[0].Changes[0].Value
-		if len(change.Statuses) > 0 {
+		change := req.Entry[0].Changes[0]
 
+		// 1. CAPTURA DE CAMBIOS DE ESTADO DE PLANTILLAS EN META (APPROVED, REJECTED, etc.)
+		if change.Field == "message_template_status_update" {
+			event := change.Value.Event
+			templateName := change.Value.MessageTemplateName
+			templateIDStr := ""
+			if change.Value.MessageTemplateID != nil {
+				templateIDStr = fmt.Sprintf("%v", change.Value.MessageTemplateID)
+			}
+
+			statusMap := map[string]string{
+				"APPROVED":         "approved",
+				"PENDING_APPROVAL": "pending",
+				"REJECTED":         "rejected",
+				"PAUSED":           "paused",
+				"DISABLED":         "disabled",
+			}
+			appStatus := "pending"
+			if s, exists := statusMap[event]; exists {
+				appStatus = s
+			}
+
+			updates := map[string]interface{}{
+				"approval_status":  appStatus,
+				"meta_template_id": templateIDStr,
+			}
+			if event == "REJECTED" && change.Value.Reason != "" {
+				updates["rejection_reason"] = change.Value.Reason
+			}
+
+			// Localizar plantilla por nombre y actualizar
+			var dbTemplate models.MessageTemplate
+			if err := config.DB.Where("template_name = ?", templateName).First(&dbTemplate).Error; err == nil {
+				config.DB.Model(&dbTemplate).Updates(updates)
+				fmt.Printf("✅ Plantilla '%s' actualizada por Webhook a estado '%s'\n", templateName, appStatus)
+			}
+
+			utils.Respond(c, http.StatusOK, true, "Cambio de estado de plantilla procesado", nil, nil)
+			return
+		}
+
+		// 2. CAPTURA DE ESTADOS DE MENSAJES (SENT, DELIVERED, READ)
+		changeVal := change.Value
+		if len(changeVal.Statuses) > 0 {
 			repo := repository.MessageRepository{}
 
-			for _, status := range change.Statuses {
+			for _, status := range changeVal.Statuses {
 				fmt.Println("🔵 ESTADO WHATSAPP DETECTADO:")
 				fmt.Printf("   ID: %s\n", status.ID)
 				fmt.Printf("   Recipient: %s\n", status.RecipientID)

@@ -11,6 +11,7 @@ type ViewChannelIntegration struct {
 	WebhookURL           string    `json:"webhook_url" gorm:"type:text;not null"`
 	AccessToken          string    `json:"access_token,omitempty" gorm:"type:text"`
 	AppIdentifier        string    `json:"app_identifier,omitempty" gorm:"type:text"`
+	MetaWabaID           *string   `json:"meta_waba_id,omitempty" gorm:"column:meta_waba_id;type:text"`
 	IsActive             bool      `json:"is_active" gorm:"default:true"`
 	CreatedAt            time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt            time.Time `json:"updated_at" gorm:"autoUpdateTime"`

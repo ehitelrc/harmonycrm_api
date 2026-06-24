@@ -1,0 +1,16 @@
+2026/06/23 19:51:09 ⚠ No se pudo cargar .env, usando variables del sistema
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+2026/06/23 19:51:10 ✅ Conexión a PostgreSQL establecida con GORM (pool configurado para alta concurrencia)
+panic: OPENAI_API_KEY no está configurada
+
+goroutine 1 [running]:
+harmony_api/routes.InitializeRoutes(0x1ade4b43a340, 0x1ade4b03a3c0)
+	/Users/ehitel/Projects/ehitel/harmony/harmonycrm_api/routes/api_configuration.go:22 +0x45c
+main.main()
+	/Users/ehitel/Projects/ehitel/harmony/harmonycrm_api/main.go:38 +0x1dc
+exit status 2
