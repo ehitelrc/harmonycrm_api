@@ -14,6 +14,7 @@ func NewTemplateReportRepository() *TemplateReportRepository {
 func (r *TemplateReportRepository) GetTemplateReport(companyID int64) (*models.TemplateReportResponse, error) {
 	var bulkSends []models.BulkTemplateSend
 	var individualSends []models.IndividualTemplateSend
+	var departments []models.DepartmentSummary
 
 	// Query for bulk sends
 	bulkSQL := `
@@ -25,14 +26,17 @@ func (r *TemplateReportRepository) GetTemplateReport(companyID int64) (*models.T
 			p.created_at AS created_at,
 			COUNT(l.id) AS total_recipients,
 			COUNT(l.id) FILTER (WHERE l.message_sent = true) AS successful_sends,
-			COUNT(l.id) FILTER (WHERE l.message_sent = false) AS failed_sends
+			COUNT(l.id) FILTER (WHERE l.message_sent = false) AS failed_sends,
+			ci.department_id AS department_id,
+			COALESCE(d.name, 'Sin Departamento') AS department_name
 		FROM campaign_whatsapp_push p
 		JOIN users u ON u.id = p.changed_by
 		JOIN message_templates t ON t.id = p.template_id
 		LEFT JOIN campaign_whatsapp_push_leads l ON l.push_id = p.id
 		JOIN channel_integrations ci ON ci.id = p.channel_integration_id
+		LEFT JOIN departments d ON d.id = ci.department_id
 		WHERE ci.company_id = ?
-		GROUP BY p.id, p.description, u.full_name, t.template_name, p.created_at
+		GROUP BY p.id, p.description, u.full_name, t.template_name, p.created_at, ci.department_id, d.name
 		ORDER BY p.created_at DESC
 	`
 	if err := config.DB.Raw(bulkSQL, companyID).Scan(&bulkSends).Error; err != nil {
@@ -48,11 +52,14 @@ func (r *TemplateReportRepository) GetTemplateReport(companyID int64) (*models.T
 			t.template_name AS template_name,
 			m.created_at AS created_at,
 			c.sender_id AS client_phone,
-			COALESCE(m.status, 'sent') AS status
+			COALESCE(m.status, 'sent') AS status,
+			c.department_id AS department_id,
+			COALESCE(d.name, 'Sin Departamento') AS department_name
 		FROM messages m
 		JOIN cases c ON c.id = m.case_id
 		JOIN message_templates t ON t.id = m.template_id
 		LEFT JOIN users u ON u.id = m.agent_id
+		LEFT JOIN departments d ON d.id = c.department_id
 		WHERE c.company_id = ?
 		ORDER BY m.created_at DESC
 	`
@@ -60,8 +67,20 @@ func (r *TemplateReportRepository) GetTemplateReport(companyID int64) (*models.T
 		return nil, err
 	}
 
+	// Query for company departments
+	deptSQL := `
+		SELECT id, name 
+		FROM departments 
+		WHERE company_id = ? 
+		ORDER BY name ASC
+	`
+	if err := config.DB.Raw(deptSQL, companyID).Scan(&departments).Error; err != nil {
+		return nil, err
+	}
+
 	return &models.TemplateReportResponse{
 		BulkSends:       bulkSends,
 		IndividualSends: individualSends,
+		Departments:     departments,
 	}, nil
 }
