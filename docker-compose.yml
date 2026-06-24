@@ -9,6 +9,8 @@ services:
     ports:
       - '8098:8098'
     restart: unless-stopped
+    env_file:
+      - .env
 
   # Harmony Service - Messages In instance
   harmony_service_messages_in:
@@ -17,6 +19,8 @@ services:
     ports:
       - '8099:8098'
     restart: unless-stopped
+    env_file:
+      - .env
 
   # Web apllication
   harmony_web:
