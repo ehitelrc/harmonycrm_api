@@ -997,12 +997,14 @@ func (r *MessageRepository) SendTemplateToCase(templateID int, caseID int) (*mod
 	}
 
 	// 4. Crear el registro del mensaje en la base de datos
+	templateIDUint := uint(templateID)
 	newMessage := models.Message{
 		CaseID:      uint(caseID),
 		SenderType:  "agent",
 		MessageType: "text",
 		TextContent: bodyText,
 		MessageRead: true,
+		TemplateID:  &templateIDUint,
 	}
 
 	if err := config.DB.Create(&newMessage).Error; err != nil {
@@ -1099,12 +1101,14 @@ func (r *MessageRepository) NewCaseFromTemplate(request dto.NewWhatsappCaseFromT
 		}
 
 		// 6. Crear mensaje inicial en DB
+		templateIDUint := uint(template.ID)
 		newMessage := models.Message{
 			CaseID:      caseIDToUse,
 			SenderType:  "agent",
 			MessageType: "text",
 			TextContent: bodyText,
 			MessageRead: true,
+			TemplateID:  &templateIDUint,
 		}
 		if err := tx.Create(&newMessage).Error; err != nil {
 			return err
