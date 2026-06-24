@@ -25,14 +25,17 @@ func (r *TemplateReportRepository) GetTemplateReport(companyID int64) (*models.T
 			t.template_name AS template_name,
 			p.created_at AS created_at,
 			COUNT(l.id) AS total_recipients,
-			COUNT(l.id) FILTER (WHERE l.message_sent = true) AS successful_sends,
-			COUNT(l.id) FILTER (WHERE l.message_sent = false) AS failed_sends,
+			COUNT(l.id) FILTER (WHERE m.status NOT IN ('failed', 'error') AND m.has_error = false AND m.id IS NOT NULL) AS successful_sends,
+			COUNT(l.id) FILTER (WHERE m.status IN ('failed', 'error') OR m.has_error = true OR m.id IS NULL) AS failed_sends,
 			ci.department_id AS department_id,
 			COALESCE(d.name, 'Sin Departamento') AS department_name
 		FROM campaign_whatsapp_push p
 		JOIN users u ON u.id = p.changed_by
 		JOIN message_templates t ON t.id = p.template_id
 		LEFT JOIN campaign_whatsapp_push_leads l ON l.push_id = p.id
+		LEFT JOIN messages m ON m.id = (
+			SELECT MIN(id) FROM messages WHERE case_id = l.case_id AND sender_type = 'agent'
+		)
 		JOIN channel_integrations ci ON ci.id = p.channel_integration_id
 		LEFT JOIN departments d ON d.id = ci.department_id
 		WHERE ci.company_id = ?

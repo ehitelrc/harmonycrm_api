@@ -150,6 +150,7 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 					MessageType: "text",
 					TextContent: bodyText,
 					MessageRead: true,
+					TemplateID:  &template.TemplateID,
 				}
 
 				if err := tx.Create(&openMsg).Error; err != nil {
@@ -260,12 +261,14 @@ func (r *CampaignPushingRepository) SendWhatsappTemplateMessage(templateID int, 
 		bodyText = "Apertura mediante template"
 	}
 
+	templateIDUint := uint(templateID)
 	newMessage := models.Message{
 		CaseID:      uint(caseIDParam),
 		SenderType:  "agent",
 		MessageType: "text",
 		TextContent: bodyText,
 		MessageRead: true,
+		TemplateID:  &templateIDUint,
 	}
 
 	if err := config.DB.Create(&newMessage).Error; err != nil {
@@ -379,12 +382,19 @@ func (r *CampaignPushingRepository) NewCaseFromTemplate(request dto.NewWhatsappC
 			bodyText = "Apertura mediante template"
 		}
 
+		var tempIDUint *uint
+		if template.TemplateID != nil {
+			val := uint(*template.TemplateID)
+			tempIDUint = &val
+		}
+
 		newMessage := models.Message{
 			CaseID:      caseIDToUse,
 			SenderType:  "agent",
 			MessageType: "text",
 			TextContent: bodyText,
 			MessageRead: true,
+			TemplateID:  tempIDUint,
 		}
 
 		if err := tx.Create(&newMessage).Error; err != nil {
