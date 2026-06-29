@@ -27,7 +27,10 @@ func (c *CaseDashboardController) GetCompanyDashboard(ctx *gin.Context) {
 		return
 	}
 
-	dashboard, err := c.repo.GetDashboardByCompany(int64(companyID))
+	startDate := ctx.Query("start_date")
+	endDate := ctx.Query("end_date")
+
+	dashboard, err := c.repo.GetDashboardByCompany(int64(companyID), startDate, endDate)
 	if err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener el dashboard de la empresa", nil, err)
 		return
@@ -53,7 +56,10 @@ func (c *CaseDashboardController) GetDepartmentDashboard(ctx *gin.Context) {
 		return
 	}
 
-	dashboard, err := c.repo.GetDashboardByCompanyAndDepartment(int64(companyID), int64(departmentID))
+	startDate := ctx.Query("start_date")
+	endDate := ctx.Query("end_date")
+
+	dashboard, err := c.repo.GetDashboardByCompanyAndDepartment(int64(companyID), int64(departmentID), startDate, endDate)
 	if err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener el dashboard del departamento", nil, err)
 		return
@@ -108,6 +114,9 @@ func (c *CaseDashboardController) GetCasesByStatus(ctx *gin.Context) {
 		}
 	}
 
+	startDate := ctx.Query("start_date")
+	endDate := ctx.Query("end_date")
+
 	pageStr := ctx.DefaultQuery("page", "1")
 	limitStr := ctx.DefaultQuery("limit", "10")
 
@@ -121,7 +130,7 @@ func (c *CaseDashboardController) GetCasesByStatus(ctx *gin.Context) {
 		limit = 10
 	}
 
-	cases, total, err := c.repo.GetCasesByStatus(companyID, departmentID, status, search, page, limit)
+	cases, total, err := c.repo.GetCasesByStatus(companyID, departmentID, status, search, page, limit, startDate, endDate)
 	if err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error al obtener casos", nil, err)
 		return
