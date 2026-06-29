@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
 	"gorm.io/gorm"
 )
@@ -40,7 +41,19 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 		return 0, err
 	}
 
-	err := db.Transaction(func(tx *gorm.DB) error {
+	// Obtener el cuerpo de la plantilla desde Meta una única vez fuera del bucle
+	templateBodyText, err := GetTemplateBodyFromMeta(template.TemplateName, integration.AccessToken)
+	if err != nil {
+		fmt.Printf("⚠️ Error obteniendo cuerpo de plantilla desde Meta: %v. Usando texto por defecto.\n", err)
+		templateBodyText = "Apertura mediante template"
+	}
+
+	// Listas donde meteremos leads + recipients para el envío masivo
+	var leadsToInsert []models.CampaignWhatsappPushLead
+	var recipients []models.TemplateRecipient
+	messageIDs := make(map[string]uint)
+
+	err = db.Transaction(func(tx *gorm.DB) error {
 
 		// ===========================================================
 		// 1. Crear encabezado solo si CampaignID != nil
@@ -60,11 +73,6 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 
 			pushID = header.ID
 		}
-
-		// Listas donde meteremos leads + recipients para el envío masivo
-		var leadsToInsert []models.CampaignWhatsappPushLead
-		var recipients []models.TemplateRecipient
-		messageIDs := make(map[string]uint)
 
 		// ===========================================================
 		// 2. Procesar cada lead
@@ -138,17 +146,12 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 					return err
 				}
 
-				bodyText, err := GetTemplateBodyFromMeta(*&template.TemplateName, integration.AccessToken)
-				if err != nil {
-					return err
-				}
-
 				// Crear mensaje inicial
 				openMsg := models.Message{
 					CaseID:      newCase.ID,
 					SenderType:  "agent",
 					MessageType: "text",
-					TextContent: bodyText,
+					TextContent: templateBodyText,
 					MessageRead: true,
 					TemplateID:  &template.TemplateID,
 				}
@@ -195,44 +198,67 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 			}
 		}
 
-		// ===========================================================
-		// 4. Enviar mensajes de plantilla uno por uno
-		// ===========================================================
-		for _, r := range recipients {
-
-			/// switch channel code
-
-			if *integration.ChannelCode == "whatsapp" {
-				wamid, err := utils.SendTemplateMessageWithID(
-					"https://graph.facebook.com/v24.0",
-					integration.AppIdentifier,
-					integration.AccessToken,
-					template.TemplateName,
-					template.LanguageCode,
-					r.Number,
-				)
-
-				if err != nil {
-					fmt.Printf("⚠️ Error enviando template a %s: %v\n", r.Number, err)
-					continue
-				}
-
-				// Intentar actualizar el mensaje si tenemos el ID (solo para casos nuevos)
-				if msgID, ok := messageIDs[r.Number]; ok {
-					if err := tx.Model(&models.Message{}).Where("id = ?", msgID).Update("channel_message_id", wamid).Error; err != nil {
-						fmt.Printf("⚠️ Error actualizando channel_message_id para mensaje %d: %v\n", msgID, err)
-					}
-				}
-			}
-
-		}
-
 		return nil
 	})
 
 	if err != nil {
 		return 0, err
 	}
+
+	// ===========================================================
+	// 4. Enviar mensajes de plantilla en segundo plano (asíncrono)
+	//    con concurrencia controlada para evitar bloquear la API
+	// ===========================================================
+	go func(recipients []models.TemplateRecipient, messageIDs map[string]uint, integration models.ViewChannelIntegration, template models.ChannelTemplateIntegration) {
+		dbConn := config.DB
+
+		// Canal para distribuir los trabajos de envío
+		jobs := make(chan models.TemplateRecipient, len(recipients))
+		for _, r := range recipients {
+			jobs <- r
+		}
+		close(jobs)
+
+		// Limitar la concurrencia a un máximo de 15 trabajadores paralelos
+		numWorkers := 15
+		if len(recipients) < numWorkers {
+			numWorkers = len(recipients)
+		}
+
+		var wg sync.WaitGroup
+		for w := 0; w < numWorkers; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for r := range jobs {
+					if integration.ChannelCode != nil && *integration.ChannelCode == "whatsapp" {
+						wamid, err := utils.SendTemplateMessageWithID(
+							"https://graph.facebook.com/v24.0",
+							integration.AppIdentifier,
+							integration.AccessToken,
+							template.TemplateName,
+							template.LanguageCode,
+							r.Number,
+						)
+
+						if err != nil {
+							fmt.Printf("⚠️ [Background Push] Error enviando template a %s: %v\n", r.Number, err)
+							continue
+						}
+
+						// Intentar actualizar el mensaje con el wamid retornado
+						if msgID, ok := messageIDs[r.Number]; ok {
+							if err := dbConn.Model(&models.Message{}).Where("id = ?", msgID).Update("channel_message_id", wamid).Error; err != nil {
+								fmt.Printf("⚠️ [Background Push] Error actualizando channel_message_id para mensaje %d: %v\n", msgID, err)
+							}
+						}
+					}
+				}
+			}()
+		}
+		wg.Wait()
+		fmt.Printf("✅ [Background Push] Envío masivo finalizado para push ID: %d\n", pushID)
+	}(recipients, messageIDs, integration, template)
 
 	return pushID, nil
 }
