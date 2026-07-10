@@ -40,16 +40,33 @@ func (s *ReceiptAnalysisService) AnalyzeFromBase64(ctx context.Context, base64Im
 		ctx = context.Background()
 	}
 
+	fmt.Println("🔍 [OCR Service] Llamando a ProcessBase64 en OCR service...")
 	// 1) OCR
 	rawText, err := s.ocrService.ProcessBase64(base64Image)
 	if err != nil {
+		fmt.Printf("❌ [OCR Service] Falló ProcessBase64: %v\n", err)
 		return nil, fmt.Errorf("error en OCR: %w", err)
 	}
 
+	fmt.Printf("🔍 [OCR Service] ProcessBase64 completado. Texto extraído: %d caracteres.\n", len(rawText))
+	if len(rawText) > 0 {
+		preview := rawText
+		if len(preview) > 100 {
+			preview = preview[:100]
+		}
+		fmt.Printf("🔍 [OCR Service] Vista previa del texto: %q\n", preview)
+	}
+
+	fmt.Println("🔍 [OCR Service] Enviando texto a OpenAI para extracción semántica...")
 	// 2) Extracción semántica (OpenAI)
 	result, err := s.AnalyzeFromText(ctx, rawText, nil, false)
 	if err != nil {
+		fmt.Printf("❌ [OCR Service] Falló la extracción con OpenAI: %v\n", err)
 		return nil, err
+	}
+
+	if result != nil {
+		fmt.Printf("🔍 [OCR Service] Extracción completada. Banco: %s, Referencia: %s, Monto: %f\n", result.BankName, result.ReferenceNumber, result.Amount)
 	}
 
 	return result, nil

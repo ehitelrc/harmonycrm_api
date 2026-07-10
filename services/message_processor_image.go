@@ -69,6 +69,8 @@ func (p *MessageProcessor) processImage(
 	}
 
 	go func(input models.IncomingMessage, newMessage *models.Message) {
+		caseID := uint(newMessage.CaseID)
+		fmt.Printf("🔍 [OCR Trace] Iniciando análisis para mensaje ID %d (Case ID %d)\n", newMessage.ID, caseID)
 
 		// Base64 sin prefijo
 		b64 := input.Base64Content
@@ -76,8 +78,7 @@ func (p *MessageProcessor) processImage(
 			b64 = b64[idx+1:]
 		}
 
-		caseID := uint(newMessage.CaseID)
-
+		fmt.Printf("🔍 [OCR Trace] Llamando a AnalyzeFromBase64 con base64 de tamaño %d bytes\n", len(b64))
 		result, err := p.receiptSvc.AnalyzeFromBase64(
 			nil, // no gin.Context aquí
 			b64,
@@ -85,25 +86,26 @@ func (p *MessageProcessor) processImage(
 			true,
 		)
 		if err != nil {
-			fmt.Println("❌ Error analizando recibo:", err)
+			fmt.Printf("❌ [OCR Trace] Error analizando recibo para mensaje %d: %v\n", newMessage.ID, err)
 			return
 		}
 
 		if result == nil {
-			fmt.Println("ℹ️ La imagen no es un recibo.")
+			fmt.Printf("ℹ️ [OCR Trace] La imagen del mensaje %d no es un recibo.\n", newMessage.ID)
 			return
 		}
 
+		fmt.Printf("🔍 [OCR Trace] Analizado con éxito. Banco: %s, Ref: %s, Monto: %f. Guardando en BD...\n", result.BankName, result.ReferenceNumber, result.Amount)
 		receiptRepo := repository.NewReceiptRepository()
 
 		messageID := uint64(newMessage.ID)
 		record, err := receiptRepo.SaveReceiptResult(result, caseID, &messageID, nil)
 		if err != nil {
-			fmt.Println("❌ Error guardando recibo:", err)
+			fmt.Printf("❌ [OCR Trace] Error guardando recibo en la BD para mensaje %d: %v\n", newMessage.ID, err)
 			return
 		}
 
-		fmt.Println("✅ Recibo guardado con ID:", record.ID)
+		fmt.Printf("✅ [OCR Trace] Recibo guardado con ID: %d para mensaje %d\n", record.ID, newMessage.ID)
 
 	}(input, newMessage)
 }
