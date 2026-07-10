@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"harmony_api/config"
 	"harmony_api/controllers"
 	"harmony_api/providers"
@@ -22,7 +23,12 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 		panic(err)
 	}
 
-	googleOCR, _ := providers.NewGoogleOCR("IA/harmonyvpocr-07dfbad813ad.json")
+	googleOCR, errOcr := providers.NewGoogleOCR("IA/harmonyvpocr-07dfbad813ad.json")
+	if errOcr != nil {
+		fmt.Printf("❌ [OCR Init] Error initializing Google OCR: %v\n", errOcr)
+	} else {
+		fmt.Println("✅ [OCR Init] Google OCR initialized successfully!")
+	}
 	ocrService := services.NewOCRService(googleOCR)
 	ocrController := controllers.NewOCRController(ocrService)
 
