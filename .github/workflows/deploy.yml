@@ -37,7 +37,7 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     env:
-      DEPLOY_KEY_PATH: /tmp/deploy_key
+      DEPLOY_KEY_PATH: deploy_key
     steps:
       - name: Prepare SSH private key
         env:
@@ -72,3 +72,7 @@ jobs:
             cd /opt/harmony
             sudo docker compose pull harmony_service
             sudo docker compose up harmony_service -d
+
+      - name: Clean up SSH private key
+        if: always()
+        run: rm -f ${{ env.DEPLOY_KEY_PATH }}
