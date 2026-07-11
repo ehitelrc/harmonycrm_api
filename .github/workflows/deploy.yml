@@ -53,7 +53,7 @@ jobs:
           if grep -Fq '\n' "${DEPLOY_KEY_PATH}"; then
             perl -0pe 's/\\n/\n/g' -i "${DEPLOY_KEY_PATH}"
           fi
-          chmod 600 "${DEPLOY_KEY_PATH}"
+          chmod 644 "${DEPLOY_KEY_PATH}"
           echo "=== Safe Structural Check (Base64 replaced with x) ==="
           tr 'A-Za-z0-9+/=' 'x' < "${DEPLOY_KEY_PATH}"
           echo "====================================================="
