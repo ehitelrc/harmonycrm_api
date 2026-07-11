@@ -43,8 +43,10 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
         run: |
-          printf '%s' "${SSH_KEY}" | tr -d '\r' > "${DEPLOY_KEY_PATH}"
-          if grep -q '\\n' "${DEPLOY_KEY_PATH}"; then
+          printf '%s' "${SSH_KEY}" > "${DEPLOY_KEY_PATH}"
+          tr -d '\r' < "${DEPLOY_KEY_PATH}" > "${DEPLOY_KEY_PATH}.tmp"
+          mv "${DEPLOY_KEY_PATH}.tmp" "${DEPLOY_KEY_PATH}"
+          if grep -Fq '\n' "${DEPLOY_KEY_PATH}"; then
             perl -0pe 's/\\n/\n/g' -i "${DEPLOY_KEY_PATH}"
           fi
           chmod 600 "${DEPLOY_KEY_PATH}"
