@@ -37,12 +37,19 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
+      - name: Prepare SSH private key
+        run: |
+          mkdir -p "${HOME}/.ssh"
+          printf '%s' "${{ secrets.SSH_KEY }}" | sed 's/\\r//g; s/\\n/\n/g' > "${HOME}/.ssh/deploy_key"
+          chmod 600 "${HOME}/.ssh/deploy_key"
+          grep -q "BEGIN .*PRIVATE KEY" "${HOME}/.ssh/deploy_key" || (echo "::error::SSH_KEY secret is not a valid private key" && exit 1)
+
       - name: SSH and deploy to production
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
+          key_path: ${{ env.HOME }}/.ssh/deploy_key
           script: |
             cd /opt/harmony
             sudo docker compose pull harmony_service
