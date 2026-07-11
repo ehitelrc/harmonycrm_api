@@ -43,6 +43,10 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
         run: |
+          if [ -z "${SSH_KEY}" ]; then
+            echo "::error::SSH_KEY secret is EMPTY!"
+            exit 1
+          fi
           printf '%s' "${SSH_KEY}" > "${DEPLOY_KEY_PATH}"
           tr -d '\r' < "${DEPLOY_KEY_PATH}" > "${DEPLOY_KEY_PATH}.tmp"
           mv "${DEPLOY_KEY_PATH}.tmp" "${DEPLOY_KEY_PATH}"
@@ -50,6 +54,9 @@ jobs:
             perl -0pe 's/\\n/\n/g' -i "${DEPLOY_KEY_PATH}"
           fi
           chmod 600 "${DEPLOY_KEY_PATH}"
+          echo "=== Safe Structural Check (Base64 replaced with x) ==="
+          tr 'A-Za-z0-9+/=' 'x' < "${DEPLOY_KEY_PATH}"
+          echo "====================================================="
           if ! grep -Eq '^-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----$' "${DEPLOY_KEY_PATH}"; then
             echo "::error::SSH_KEY secret does not contain a private key header"
             exit 1
