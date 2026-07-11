@@ -300,8 +300,17 @@ func (w *WhatsAppWebhookController) Receive(c *gin.Context) {
 					fmt.Printf("✅ Log de estado guardado ID: %d\n", msgStatusLog.ID)
 				}
 
+				errStr := ""
+				if status.Status == "failed" && len(status.Errors) > 0 {
+					errDetail := status.Errors[0].Message
+					if status.Errors[0].ErrorData.Details != "" {
+						errDetail = status.Errors[0].ErrorData.Details
+					}
+					errStr = fmt.Sprintf("Error %d: %s", status.Errors[0].Code, errDetail)
+				}
+
 				// Actualizar estado en la BD
-				if err := repo.UpdateMessageStatusByChannelID(status.ID, status.Status); err != nil {
+				if err := repo.UpdateMessageStatusByChannelID(status.ID, status.Status, errStr); err != nil {
 					fmt.Printf("❌ Error actualizando estado mensaje %s: %v\n", status.ID, err)
 				} else {
 					fmt.Printf("✅ Estado mensaje %s actualizado a %s\n", status.ID, status.Status)

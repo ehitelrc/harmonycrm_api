@@ -51,9 +51,12 @@ type WhatsAppStatus struct {
 		Category     string `json:"category"`
 	} `json:"pricing,omitempty"`
 	Errors []struct {
-		Code    int    `json:"code"`
-		Title   string `json:"title"`
-		Message string `json:"message"`
+		Code      int    `json:"code"`
+		Title     string `json:"title"`
+		Message   string `json:"message"`
+		ErrorData struct {
+			Details string `json:"details"`
+		} `json:"error_data,omitempty"`
 	} `json:"errors,omitempty"`
 }
 

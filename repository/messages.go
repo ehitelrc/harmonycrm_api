@@ -887,10 +887,18 @@ func (r *MessageRepository) GetMessageByID(id uint) (*models.Message, error) {
 	return &message, nil
 }
 
-func (r *MessageRepository) UpdateMessageStatusByChannelID(channelMessageID string, status string) error {
+func (r *MessageRepository) UpdateMessageStatusByChannelID(channelMessageID string, status string, errorStr string) error {
+	updates := map[string]interface{}{
+		"status": status,
+	}
+	if status == "failed" && errorStr != "" {
+		updates["has_error"] = true
+		updates["message_error"] = errorStr
+	}
+
 	result := config.DB.Model(&models.Message{}).
 		Where("channel_message_id = ?", channelMessageID).
-		Update("status", status)
+		Updates(updates)
 
 	if result.Error != nil {
 		return fmt.Errorf("error updating message status: %w", result.Error)
@@ -952,10 +960,12 @@ func (r *MessageRepository) ProcessUnappliedMessageStatuses(hub *ws.Hub) error {
 				fmt.Printf("📢 Intentando broadcast WS para Caso: %d, ID: %d, Status: %s\n", message.CaseID, message.ID, s.MessageStatus)
 
 				payload, _ := json.Marshal(map[string]interface{}{
-					"type":    "message_status_update",
-					"id":      message.ID,
-					"case_id": message.CaseID,
-					"status":  s.MessageStatus,
+					"type":          "message_status_update",
+					"id":            message.ID,
+					"case_id":       message.CaseID,
+					"status":        s.MessageStatus,
+					"has_error":     message.HasError,
+					"message_error": message.MessageError,
 				})
 
 				channel := fmt.Sprintf("case:%d", message.CaseID)
