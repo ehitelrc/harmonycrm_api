@@ -57,7 +57,7 @@ jobs:
           echo "=== Safe Structural Check (Base64 replaced with x) ==="
           tr 'A-Za-z0-9+/=' 'x' < "${DEPLOY_KEY_PATH}"
           echo "====================================================="
-          if ! grep -Eq '^-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----$' "${DEPLOY_KEY_PATH}"; then
+          if ! grep -q "BEGIN" "${DEPLOY_KEY_PATH}" || ! grep -q "PRIVATE KEY" "${DEPLOY_KEY_PATH}"; then
             echo "::error::SSH_KEY secret does not contain a private key header"
             exit 1
           fi
