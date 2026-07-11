@@ -37,7 +37,7 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     env:
-      DEPLOY_KEY_PATH: ${{ runner.temp }}/deploy_key
+      DEPLOY_KEY_PATH: /tmp/deploy_key
     steps:
       - name: Prepare SSH private key
         env:
