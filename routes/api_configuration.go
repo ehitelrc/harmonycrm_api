@@ -141,6 +141,7 @@ func InitializeRoutes(r *gin.Engine, hub *ws.Hub) {
 	RegisterTemplateRoutes(api)
 	RegisterTemplateReportRoutes(api)
 	RegisterOcrReportRoutes(api)
+	RegisterMessageStatusReportRoutes(api)
 
 	RegisterPaymentValidationRoutes(api)
 
