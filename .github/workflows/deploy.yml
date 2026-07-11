@@ -43,9 +43,15 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
         run: |
-          printf '%s' "${SSH_KEY}" | sed 's/\\r//g; s/\\n/\n/g' > "${DEPLOY_KEY_PATH}"
+          printf '%s' "${SSH_KEY}" > "${DEPLOY_KEY_PATH}"
+          if grep -q '\\n' "${DEPLOY_KEY_PATH}"; then
+            perl -pe 's/\r//g; s/\\n/\n/g' "${DEPLOY_KEY_PATH}" > "${DEPLOY_KEY_PATH}.normalized"
+          else
+            tr -d '\r' < "${DEPLOY_KEY_PATH}" > "${DEPLOY_KEY_PATH}.normalized"
+          fi
+          mv "${DEPLOY_KEY_PATH}.normalized" "${DEPLOY_KEY_PATH}"
           chmod 600 "${DEPLOY_KEY_PATH}"
-          grep -q "BEGIN .*PRIVATE KEY" "${DEPLOY_KEY_PATH}" || (echo "::error::SSH_KEY secret is not a valid private key" && exit 1)
+          grep -Eq '^-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----$' "${DEPLOY_KEY_PATH}" || (echo "::error::SSH_KEY secret is not a valid private key" && exit 1)
 
       - name: SSH and deploy to production
         uses: appleboy/ssh-action@v1.0.3
