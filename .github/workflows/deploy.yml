@@ -43,15 +43,15 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
         run: |
-          printf '%s' "${SSH_KEY}" > "${DEPLOY_KEY_PATH}"
-          tr -d '\r' < "${DEPLOY_KEY_PATH}" > "${DEPLOY_KEY_PATH}.normalized"
-          if grep -q '\\n' "${DEPLOY_KEY_PATH}.normalized"; then
-            perl -pe 's/\\n/\n/g' "${DEPLOY_KEY_PATH}.normalized" > "${DEPLOY_KEY_PATH}.tmp"
-            mv "${DEPLOY_KEY_PATH}.tmp" "${DEPLOY_KEY_PATH}.normalized"
+          printf '%s' "${SSH_KEY}" | tr -d '\r' > "${DEPLOY_KEY_PATH}"
+          if grep -q '\\n' "${DEPLOY_KEY_PATH}"; then
+            perl -0pe 's/\\n/\n/g' -i "${DEPLOY_KEY_PATH}"
           fi
-          mv "${DEPLOY_KEY_PATH}.normalized" "${DEPLOY_KEY_PATH}"
           chmod 600 "${DEPLOY_KEY_PATH}"
-          grep -Eq '^-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----$' "${DEPLOY_KEY_PATH}" || (echo "::error::SSH_KEY secret does not contain a private key header" && exit 1)
+          if ! grep -Eq '^-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----$' "${DEPLOY_KEY_PATH}"; then
+            echo "::error::SSH_KEY secret does not contain a private key header"
+            exit 1
+          fi
 
       - name: SSH and deploy to production
         uses: appleboy/ssh-action@v1.0.3
