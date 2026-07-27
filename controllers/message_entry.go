@@ -668,6 +668,7 @@ func (m *MessageEntry) ReceiveAudioMessageWebhookMedia(c *gin.Context) {
 
 func (m *MessageEntry) GetActiveCasesByAgentID(c *gin.Context) {
 	agentID := c.Param("agent_id")
+	companyID := c.Query("company_id")
 
 	intAgentID, err := strconv.Atoi(agentID)
 	if err != nil {
@@ -675,20 +676,20 @@ func (m *MessageEntry) GetActiveCasesByAgentID(c *gin.Context) {
 		return
 	}
 
-	if cached, found := utils.GetActiveCasesByAgentFromCache(uint(intAgentID)); found {
+	if cached, found := utils.GetActiveCasesByAgentFromCache(uint(intAgentID), companyID); found {
 		utils.Respond(c, http.StatusOK, true, "Casos activos (cache)", cached, nil)
 		return
 	}
 
 	repository := repository.MessageRepository{}
 
-	activeCases, err := repository.GetActiveCasesByAgentID(agentID)
+	activeCases, err := repository.GetActiveCasesByAgentID(agentID, companyID)
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, false, "Error al obtener los casos activos", nil, err)
 		return
 	}
 
-	utils.CacheActiveCasesByAgent(uint(intAgentID), activeCases)
+	utils.CacheActiveCasesByAgent(uint(intAgentID), companyID, activeCases)
 
 	utils.Respond(c, http.StatusOK, true, "Casos activos obtenidos correctamente!", activeCases, nil)
 }
@@ -1998,7 +1999,7 @@ func (m *MessageEntry) CloseCase(c *gin.Context) {
 
 	// 2. Invalidar cache si tenía agente asignado
 	if caseData != nil && caseData.AgentID > 0 {
-		utils.InvalidateActiveCasesByAgent(caseData.AgentID)
+		utils.InvalidateActiveCasesByAgent(caseData.AgentID, caseData.CompanyID)
 		fmt.Println("🧹 Cache invalidado para agente:", caseData.AgentID)
 	}
 

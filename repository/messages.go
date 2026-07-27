@@ -349,9 +349,13 @@ func (r *MessageRepository) MarkMessagesAsReadByCaseID(caseID string) error {
 	return err
 }
 
-func (r *MessageRepository) GetActiveCasesByAgentID(agentID string) ([]models.CaseWithChannel, error) {
+func (r *MessageRepository) GetActiveCasesByAgentID(agentID string, companyID string) ([]models.CaseWithChannel, error) {
 	var activeCases []models.CaseWithChannel
-	err := config.DB.Where("agent_id = ? AND status = ?", agentID, "open").Find(&activeCases).Error
+	query := config.DB.Where("agent_id = ? AND status = ?", agentID, "open")
+	if companyID != "" {
+		query = query.Where("company_id = ?", companyID)
+	}
+	err := query.Find(&activeCases).Error
 	if err != nil {
 		return nil, err
 	}

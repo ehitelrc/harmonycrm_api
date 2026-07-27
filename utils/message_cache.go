@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -47,20 +48,24 @@ func GetOpenCasesStatsFromCache(companyID, deptID uint) (interface{}, bool) {
    ACTIVE CASES BY AGENT
 --------------------------------*/
 
-func ActiveCasesByAgentKey(agentID uint) string {
+func ActiveCasesByAgentKey(agentID uint, companyID string) string {
+	if companyID != "" {
+		return fmt.Sprintf("cases:active:agent:%d:company:%s", agentID, companyID)
+	}
 	return fmt.Sprintf("cases:active:agent:%d", agentID)
 }
 
-func CacheActiveCasesByAgent(agentID uint, data interface{}) {
-	SetToCache(ActiveCasesByAgentKey(agentID), data, 30*time.Second)
+func CacheActiveCasesByAgent(agentID uint, companyID string, data interface{}) {
+	SetToCache(ActiveCasesByAgentKey(agentID, companyID), data, 30*time.Second)
 }
 
-func GetActiveCasesByAgentFromCache(agentID uint) (interface{}, bool) {
-	return GetFromCache(ActiveCasesByAgentKey(agentID))
+func GetActiveCasesByAgentFromCache(agentID uint, companyID string) (interface{}, bool) {
+	return GetFromCache(ActiveCasesByAgentKey(agentID, companyID))
 }
 
-func InvalidateActiveCasesByAgent(agentID uint) {
-	DeleteCache(ActiveCasesByAgentKey(agentID))
+func InvalidateActiveCasesByAgent(agentID uint, companyID uint) {
+	DeleteCache(ActiveCasesByAgentKey(agentID, strconv.Itoa(int(companyID))))
+	DeleteCache(ActiveCasesByAgentKey(agentID, ""))
 }
 
 /* -------------------------------
