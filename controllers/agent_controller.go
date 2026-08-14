@@ -215,3 +215,41 @@ func (ac *AgentController) GetAllNonAgents(c *gin.Context) {
 
 	utils.Respond(c, http.StatusOK, true, "Usuarios no agentes obtenidos correctamente", rows, nil)
 }
+
+type UnifiedAgentRequest struct {
+	Email         string `json:"email" binding:"required"`
+	FullName      string `json:"full_name" binding:"required"`
+	Phone         string `json:"phone"`
+	Password      string `json:"password" binding:"required"`
+	CompanyID     uint   `json:"company_id" binding:"required"`
+	RoleID        uint   `json:"role_id" binding:"required"`
+	DepartmentIDs []uint `json:"department_ids"`
+}
+
+func (ac *AgentController) CreateUnifiedAgent(c *gin.Context) {
+	var body UnifiedAgentRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		utils.Respond(c, http.StatusBadRequest, false, "JSON inválido", nil, err)
+		return
+	}
+
+	// 1. Hashear password
+	hash, err := utils.HashPassword(body.Password)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, "Error al procesar contraseña", nil, err)
+		return
+	}
+
+	// 2. Ejecutar creación transaccional
+	user, err := ac.repo.CreateUnifiedAgent(body.Email, body.FullName, body.Phone, hash, body.CompanyID, body.RoleID, body.DepartmentIDs)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, false, err.Error(), nil, err)
+		return
+	}
+
+	// 3. Invalidar cachés
+	utils.InvalidateAgentsCache()
+	utils.DeleteCache(utils.AgentsByCompanyWithUserInfoKey(body.CompanyID))
+
+	utils.Respond(c, http.StatusCreated, true, "Agente creado y configurado correctamente!", user, nil)
+}

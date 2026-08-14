@@ -12,6 +12,7 @@ func RegisterAgentRoutes(r *gin.RouterGroup) {
 	r.GET("/agents", ctrl.GetAll)
 	r.GET("/agents/:user_id", ctrl.GetByUserID)
 	r.POST("/agents", ctrl.Create)
+	r.POST("/agents/unified", ctrl.CreateUnifiedAgent)
 	r.DELETE("/agents/:user_id", ctrl.Delete)
 
 	// Agentes con info de usuario
