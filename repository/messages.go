@@ -1005,7 +1005,14 @@ func (r *MessageRepository) SendTemplateToCase(templateID int, caseID int) (*mod
 	}
 
 	// 3. Obtener el texto del body del template desde Meta
-	bodyText, err := GetTemplateBodyFromMeta(template.TemplateName, *caseIntegration.AccessToken)
+	var wabaID string
+	if caseIntegration.MetaWabaID != nil && *caseIntegration.MetaWabaID != "" {
+		wabaID = *caseIntegration.MetaWabaID
+	} else {
+		wabaID, _ = GetSettingTextValue("WAB_ID")
+	}
+
+	bodyText, err := GetTemplateBodyFromMeta(template.TemplateName, wabaID, *caseIntegration.AccessToken)
 	if err != nil {
 		bodyText = "Mensaje enviado mediante template"
 	}
@@ -1109,7 +1116,14 @@ func (r *MessageRepository) NewCaseFromTemplate(request dto.NewWhatsappCaseFromT
 		}
 
 		// 5. Obtener texto del body del template desde Meta usando credenciales de la integración
-		bodyText, err := GetTemplateBodyFromMeta(template.TemplateName, integration.AccessToken)
+		var wabaID string
+		if integration.MetaWabaID != nil && *integration.MetaWabaID != "" {
+			wabaID = *integration.MetaWabaID
+		} else {
+			wabaID, _ = GetSettingTextValue("WAB_ID")
+		}
+
+		bodyText, err := GetTemplateBodyFromMeta(template.TemplateName, wabaID, integration.AccessToken)
 		if err != nil {
 			bodyText = "Apertura mediante template"
 		}

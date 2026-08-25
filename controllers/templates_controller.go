@@ -84,23 +84,35 @@ func (c *TemplateController) CreateTemplate(ctx *gin.Context) {
 
 	// 2. Intentar registrar automáticamente en Meta
 	var wabaID string
-	var channel models.Channel
-	if err := config.DB.Where("id = ?", template.ChannelID).First(&channel).Error; err == nil && channel.MetaWabaID != nil && *channel.MetaWabaID != "" {
-		wabaID = *channel.MetaWabaID
-	} else {
-		wabaID, _ = repository.GetSettingTextValue("WAB_ID")
+	var accessToken string
+
+	for _, integration := range integrations {
+		if integration.MetaWabaID != nil && *integration.MetaWabaID != "" && integration.AccessToken != "" {
+			wabaID = *integration.MetaWabaID
+			accessToken = integration.AccessToken
+			break
+		}
 	}
 
-	if wabaID != "" && len(integrations) > 0 {
-		var accessToken string
+	// Fallback a WABA ID del canal o global, y primer token de acceso disponible
+	if wabaID == "" && len(integrations) > 0 {
+		var channel models.Channel
+		if err := config.DB.Where("id = ?", template.ChannelID).First(&channel).Error; err == nil && channel.MetaWabaID != nil && *channel.MetaWabaID != "" {
+			wabaID = *channel.MetaWabaID
+		} else {
+			wabaID, _ = repository.GetSettingTextValue("WAB_ID")
+		}
+
 		for _, integration := range integrations {
 			if integration.AccessToken != "" {
 				accessToken = integration.AccessToken
 				break
 			}
 		}
+	}
 
-		if wabaID != "" && accessToken != "" && template.BodyContent != nil && *template.BodyContent != "" {
+	if wabaID != "" && accessToken != "" && len(integrations) > 0 {
+		if template.BodyContent != nil && *template.BodyContent != "" {
 			fmt.Printf("🚀 Auto-registrando nueva plantilla '%s' en Meta...\n", template.TemplateName)
 			metaID, status, err := RegisterTemplateInMeta(wabaID, accessToken, &template)
 			if err != nil {
@@ -124,12 +136,6 @@ func (c *TemplateController) CreateTemplate(ctx *gin.Context) {
 				})
 				fmt.Printf("✅ Plantilla '%s' registrada en Meta automáticamente. ID: %s, Estado: %s\n", template.TemplateName, metaID, appStatus)
 			}
-		} else if template.BodyContent != nil && *template.BodyContent != "" {
-			// Simulación local si no tiene credenciales de Meta o si wabaID es vacío
-			config.DB.Model(&template).Updates(map[string]interface{}{
-				"approval_status":  "pending",
-				"meta_template_id": "simulated_id_" + strconv.Itoa(int(template.ID)),
-			})
 		}
 	} else if template.BodyContent != nil && *template.BodyContent != "" {
 		// Simulación local si no tiene credenciales de Meta o si no hay integraciones vinculadas
@@ -265,17 +271,22 @@ func (c *TemplateController) DeleteTemplate(ctx *gin.Context) {
 	// Si está registrada en Meta, intentar eliminarla de Meta también
 	if template.MetaTemplateID != nil && !strings.HasPrefix(*template.MetaTemplateID, "simulated_id_") {
 		var wabaID string
-		var channel models.Channel
-		if err := config.DB.Where("id = ?", template.ChannelID).First(&channel).Error; err == nil && channel.MetaWabaID != nil && *channel.MetaWabaID != "" {
-			wabaID = *channel.MetaWabaID
-		} else {
-			wabaID, _ = repository.GetSettingTextValue("WAB_ID")
-		}
-
 		var accessToken string
 		var integration models.ChannelIntegration
 		if err := config.DB.Where("channel_id = ? AND is_active = ? AND access_token IS NOT NULL AND access_token != ''", template.ChannelID, true).First(&integration).Error; err == nil {
 			accessToken = integration.AccessToken
+			if integration.MetaWabaID != nil && *integration.MetaWabaID != "" {
+				wabaID = *integration.MetaWabaID
+			}
+		}
+
+		if wabaID == "" {
+			var channel models.Channel
+			if err := config.DB.Where("id = ?", template.ChannelID).First(&channel).Error; err == nil && channel.MetaWabaID != nil && *channel.MetaWabaID != "" {
+				wabaID = *channel.MetaWabaID
+			} else {
+				wabaID, _ = repository.GetSettingTextValue("WAB_ID")
+			}
 		}
 
 		if wabaID != "" && accessToken != "" {
@@ -389,14 +400,21 @@ func (c *TemplateController) PreviewMetaTemplate(ctx *gin.Context) {
 		return
 	}
 
-	// Obtener la integración para sacar el access token
+	// Obtener la integración para sacar el access token y waba id
 	var integration models.ChannelIntegration
 	if err := config.DB.Where("id = ?", integrationID).First(&integration).Error; err != nil {
 		utils.Respond(ctx, http.StatusNotFound, false, "Integración no encontrada", nil, err)
 		return
 	}
 
-	bodyText, err := repository.GetTemplateBodyFromMeta(templateName, integration.AccessToken)
+	var wabaID string
+	if integration.MetaWabaID != nil && *integration.MetaWabaID != "" {
+		wabaID = *integration.MetaWabaID
+	} else {
+		wabaID, _ = repository.GetSettingTextValue("WAB_ID")
+	}
+
+	bodyText, err := repository.GetTemplateBodyFromMeta(templateName, wabaID, integration.AccessToken)
 	if err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error consultando a Meta", nil, err)
 		return
@@ -446,11 +464,17 @@ func (c *TemplateController) RegisterMetaTemplate(ctx *gin.Context) {
 	integration := integrations[0]
 
 	var wabaID string
-	var channel models.Channel
-	if err := config.DB.Where("id = ?", template.ChannelID).First(&channel).Error; err == nil && channel.MetaWabaID != nil && *channel.MetaWabaID != "" {
-		wabaID = *channel.MetaWabaID
-	} else {
-		wabaID, _ = repository.GetSettingTextValue("WAB_ID")
+	if integration.MetaWabaID != nil && *integration.MetaWabaID != "" {
+		wabaID = *integration.MetaWabaID
+	}
+
+	if wabaID == "" {
+		var channel models.Channel
+		if err := config.DB.Where("id = ?", template.ChannelID).First(&channel).Error; err == nil && channel.MetaWabaID != nil && *channel.MetaWabaID != "" {
+			wabaID = *channel.MetaWabaID
+		} else {
+			wabaID, _ = repository.GetSettingTextValue("WAB_ID")
+		}
 	}
 
 	if wabaID == "" || integration.AccessToken == "" {
@@ -520,17 +544,23 @@ func (c *TemplateController) SyncMetaTemplate(ctx *gin.Context) {
 
 	// Buscar credenciales
 	var wabaID string
-	var channel models.Channel
-	if err := config.DB.Where("id = ?", template.ChannelID).First(&channel).Error; err == nil && channel.MetaWabaID != nil && *channel.MetaWabaID != "" {
-		wabaID = *channel.MetaWabaID
-	} else {
-		wabaID, _ = repository.GetSettingTextValue("WAB_ID")
-	}
-
 	var accessToken string
 	var integration models.ChannelIntegration
 	if err := config.DB.Where("channel_id = ? AND is_active = ? AND access_token IS NOT NULL AND access_token != ''", template.ChannelID, true).First(&integration).Error; err == nil {
 		accessToken = integration.AccessToken
+		if integration.MetaWabaID != nil && *integration.MetaWabaID != "" {
+			wabaID = *integration.MetaWabaID
+		}
+	}
+
+	// Fallback
+	if wabaID == "" {
+		var channel models.Channel
+		if err := config.DB.Where("id = ?", template.ChannelID).First(&channel).Error; err == nil && channel.MetaWabaID != nil && *channel.MetaWabaID != "" {
+			wabaID = *channel.MetaWabaID
+		} else {
+			wabaID, _ = repository.GetSettingTextValue("WAB_ID")
+		}
 	}
 
 	if isSimulated || wabaID == "" || accessToken == "" {
