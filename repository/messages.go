@@ -1162,12 +1162,12 @@ func (r *MessageRepository) NewCaseFromTemplate(request dto.NewWhatsappCaseFromT
 				request.ContactPhone,
 			)
 			if err != nil {
-				fmt.Printf("⚠️ Error enviando template por WhatsApp a Meta (No bloqueante): %v\n", err)
-			} else {
-				// 8. Actualizar channel_message_id con el Wamid recibido
-				if err := tx.Model(&models.Message{}).Where("id = ?", newMessage.ID).Update("channel_message_id", wamid).Error; err != nil {
-					fmt.Printf("⚠️ Error actualizando channel_message_id para mensaje %d: %v\n", newMessage.ID, err)
-				}
+				return fmt.Errorf("error enviando template por WhatsApp: %w", err)
+			}
+
+			// 8. Actualizar channel_message_id con el Wamid recibido
+			if err := tx.Model(&models.Message{}).Where("id = ?", newMessage.ID).Update("channel_message_id", wamid).Error; err != nil {
+				fmt.Printf("⚠️ Error actualizando channel_message_id para mensaje %d: %v\n", newMessage.ID, err)
 			}
 
 		default:
