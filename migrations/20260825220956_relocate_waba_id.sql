@@ -2,7 +2,7 @@
 -- 1. Ensure meta_waba_id column exists in channel_integrations
 ALTER TABLE public.channel_integrations ADD COLUMN IF NOT EXISTS meta_waba_id text;
 
--- 2. Update vw_channel_integrations view to include meta_waba_id
+-- 2. Update vw_channel_integrations view to include meta_waba_id (Appended at the end to avoid SQLSTATE 42P16 column shifting)
 CREATE OR REPLACE VIEW public.vw_channel_integrations AS
  SELECT ci.id AS channel_integration_id,
     ci.company_id,
@@ -10,7 +10,6 @@ CREATE OR REPLACE VIEW public.vw_channel_integrations AS
     ci.webhook_url,
     ci.access_token,
     ci.app_identifier,
-    ci.meta_waba_id,
     ci.is_active,
     ci.created_at,
     ci.updated_at,
@@ -19,12 +18,13 @@ CREATE OR REPLACE VIEW public.vw_channel_integrations AS
     ci.department_id,
     d.name AS department_name,
     c.code AS channel_code,
-    ci.analyze_incoming_images
+    ci.analyze_incoming_images,
+    ci.meta_waba_id
    FROM ((public.channel_integrations ci
      JOIN public.channels c ON ((c.id = ci.channel_id)))
      LEFT JOIN public.departments d ON ((ci.department_id = d.id)));
 
--- 3. Update vw_case_channel_integration view to include meta_waba_id
+-- 3. Update vw_case_channel_integration view to include meta_waba_id (Appended at the end)
 CREATE OR REPLACE VIEW public.vw_case_channel_integration AS
  SELECT c.id AS case_id,
     c.company_id,
@@ -39,9 +39,9 @@ CREATE OR REPLACE VIEW public.vw_case_channel_integration AS
     ci.webhook_url,
     ci.access_token,
     ci.app_identifier,
-    ci.meta_waba_id,
     ci.is_active AS integration_is_active,
-    ci.updated_at AS integration_updated_at
+    ci.updated_at AS integration_updated_at,
+    ci.meta_waba_id
    FROM ((public.cases c
      JOIN public.channel_integrations ci ON ((ci.id = c.channel_integration_id)))
      JOIN public.channels ch ON ((ch.id = ci.channel_id)));
@@ -97,6 +97,3 @@ CREATE OR REPLACE VIEW public.vw_channel_integrations AS
    FROM ((public.channel_integrations ci
      JOIN public.channels c ON ((c.id = ci.channel_id)))
      LEFT JOIN public.departments d ON ((ci.department_id = d.id)));
-
--- Optionally, we keep the column in case of rollback, or we could drop it:
--- ALTER TABLE public.channel_integrations DROP COLUMN IF EXISTS meta_waba_id;
