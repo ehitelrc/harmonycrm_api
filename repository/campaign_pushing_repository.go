@@ -42,7 +42,14 @@ func (r *CampaignPushingRepository) CreateWhatsappPush(data *models.CampaignWhat
 	}
 
 	// Obtener el cuerpo de la plantilla desde Meta una única vez fuera del bucle
-	templateBodyText, err := GetTemplateBodyFromMeta(template.TemplateName, integration.AccessToken)
+	var wabaID string
+	if integration.MetaWabaID != nil && *integration.MetaWabaID != "" {
+		wabaID = *integration.MetaWabaID
+	} else {
+		wabaID, _ = GetSettingTextValue("WAB_ID")
+	}
+
+	templateBodyText, err := GetTemplateBodyFromMeta(template.TemplateName, wabaID, integration.AccessToken)
 	if err != nil {
 		fmt.Printf("⚠️ Error obteniendo cuerpo de plantilla desde Meta: %v. Usando texto por defecto.\n", err)
 		templateBodyText = "Apertura mediante template"
@@ -282,7 +289,14 @@ func (r *CampaignPushingRepository) SendWhatsappTemplateMessage(templateID int, 
 	// create message record
 	caseIDParam := int64(caseChannelIntegration.CaseID)
 
-	bodyText, err := GetTemplateBodyFromMeta(*&template.TemplateName, *caseChannelIntegration.AccessToken)
+	var wabaID string
+	if caseChannelIntegration.MetaWabaID != nil && *caseChannelIntegration.MetaWabaID != "" {
+		wabaID = *caseChannelIntegration.MetaWabaID
+	} else {
+		wabaID, _ = GetSettingTextValue("WAB_ID")
+	}
+
+	bodyText, err := GetTemplateBodyFromMeta(*&template.TemplateName, wabaID, *caseChannelIntegration.AccessToken)
 	if err != nil {
 		bodyText = "Apertura mediante template"
 	}
@@ -403,7 +417,14 @@ func (r *CampaignPushingRepository) NewCaseFromTemplate(request dto.NewWhatsappC
 			return err
 		}
 
-		bodyText, err := GetTemplateBodyFromMeta(*template.TemplateName, *template.AccessToken)
+		var wabaID string
+		if integration.MetaWabaID != nil && *integration.MetaWabaID != "" {
+			wabaID = *integration.MetaWabaID
+		} else {
+			wabaID, _ = GetSettingTextValue("WAB_ID")
+		}
+
+		bodyText, err := GetTemplateBodyFromMeta(*template.TemplateName, wabaID, *template.AccessToken)
 		if err != nil {
 			bodyText = "Apertura mediante template"
 		}
@@ -493,10 +514,13 @@ func GetSettingTextValue(code string) (string, error) {
 	return *setting.TextValue, nil
 }
 
-func GetTemplateBodyFromMeta(templateName string, accessToken string) (string, error) {
-	wabaID, err := GetSettingTextValue("WAB_ID")
-	if err != nil {
-		return "", err
+func GetTemplateBodyFromMeta(templateName string, wabaID string, accessToken string) (string, error) {
+	if wabaID == "" {
+		var err error
+		wabaID, err = GetSettingTextValue("WAB_ID")
+		if err != nil {
+			return "", err
+		}
 	}
 
 	url := fmt.Sprintf(

@@ -20,6 +20,7 @@ type VWCaseChannelIntegration struct {
 	AppIdentifier        *string    `db:"app_identifier"           json:"app_identifier,omitempty"  gorm:"column:app_identifier"`
 	IntegrationIsActive  bool       `db:"integration_is_active"    json:"integration_is_active"     gorm:"column:integration_is_active"`
 	IntegrationUpdatedAt *time.Time `db:"integration_updated_at"   json:"integration_updated_at,omitempty" gorm:"column:integration_updated_at"`
+	MetaWabaID           *string    `db:"meta_waba_id"             json:"meta_waba_id,omitempty"    gorm:"column:meta_waba_id"`
 }
 
 // (Opcional) Para GORM: fija el nombre de la vista.

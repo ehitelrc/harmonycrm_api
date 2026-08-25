@@ -104,17 +104,23 @@ func syncPendingTemplates() {
 
 		// Find access token and waba id
 		var wabaID string
-		var channel models.Channel
-		if err := config.DB.Where("id = ?", tmpl.ChannelID).First(&channel).Error; err == nil && channel.MetaWabaID != nil && *channel.MetaWabaID != "" {
-			wabaID = *channel.MetaWabaID
-		} else {
-			wabaID = globalWabaID
-		}
-
 		var accessToken string
 		var integration models.ChannelIntegration
 		if err := config.DB.Where("channel_id = ? AND is_active = ? AND access_token IS NOT NULL AND access_token != ''", tmpl.ChannelID, true).First(&integration).Error; err == nil {
 			accessToken = integration.AccessToken
+			if integration.MetaWabaID != nil && *integration.MetaWabaID != "" {
+				wabaID = *integration.MetaWabaID
+			}
+		}
+
+		// Fallback
+		if wabaID == "" {
+			var channel models.Channel
+			if err := config.DB.Where("id = ?", tmpl.ChannelID).First(&channel).Error; err == nil && channel.MetaWabaID != nil && *channel.MetaWabaID != "" {
+				wabaID = *channel.MetaWabaID
+			} else {
+				wabaID = globalWabaID
+			}
 		}
 
 		if accessToken == "" || wabaID == "" {
