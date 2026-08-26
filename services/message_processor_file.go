@@ -66,5 +66,9 @@ func (p *MessageProcessor) processFile(
 		return
 	}
 
+	newMessage.Base64Content = completeData
+	newMessage.MIMEType = mime
+	p.broadcast(newMessage)
+
 	fmt.Println("✅ Archivo procesado y guardado:", newMessage.ID)
 }

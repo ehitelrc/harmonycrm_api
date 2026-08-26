@@ -73,5 +73,9 @@ func (p *MessageProcessor) processAudio(
 		return
 	}
 
+	newMessage.Base64Content = input.Base64Content
+	newMessage.MIMEType = input.MIMEType
+	p.broadcast(newMessage)
+
 	fmt.Println("✅ Audio persistido correctamente | message_id:", newMessage.ID)
 }

@@ -62,6 +62,10 @@ func (p *MessageProcessor) processImage(
 		return
 	}
 
+	newMessage.Base64Content = input.Base64Content
+	newMessage.MIMEType = input.MIMEType
+	p.broadcast(newMessage)
+
 	// 5️⃣ OCR ASÍNCRONO (idéntico a tu lógica actual)
 	if !channel.AnalyzeIncomingImages {
 		fmt.Println("ℹ️ Análisis de imágenes entrantes deshabilitado para esta integración.")
