@@ -78,7 +78,7 @@ func (r *MessageRepository) CreateMessage(message models.IncomingMessage) (*mode
 	// Buscar si ya existe un caso
 	var cases models.Case
 	tx := config.DB.
-		Where("channel_id = ? AND sender_id = ? and status = ?", channnel.ChannelID, message.SenderID, "open").
+		Where("channel_id = ? AND channel_integration_id = ? AND sender_id = ? and status = ?", channnel.ChannelID, channnel.IntegrationID, message.SenderID, "open").
 		First(&cases)
 
 	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
