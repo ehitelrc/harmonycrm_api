@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 )
@@ -423,6 +424,49 @@ func (c *TemplateController) PreviewMetaTemplate(ctx *gin.Context) {
 	utils.Respond(ctx, http.StatusOK, true, "Plantilla obtenida de Meta", bodyText, nil)
 }
 
+// getIntegrationForTemplate busca la integración asignada a la plantilla en integration_templates
+// o como alternativa la primera integración activa del canal correspondiente.
+func getIntegrationForTemplate(template *models.MessageTemplate) (*models.ChannelIntegration, string, string) {
+	var integration models.ChannelIntegration
+	found := false
+
+	// 1. Priorizar integración explícitamente vinculada en integration_templates
+	var linkedInteg models.IntegrationTemplate
+	if err := config.DB.Where("template_id = ?", template.ID).Order("id DESC").First(&linkedInteg).Error; err == nil {
+		if err := config.DB.Where("id = ? AND is_active = ? AND access_token IS NOT NULL AND access_token != ''", linkedInteg.IntegrationID, true).First(&integration).Error; err == nil {
+			found = true
+		}
+	}
+
+	// 2. Si no se encontró vinculación, buscar entre las integraciones del canal
+	if !found {
+		var channelInteg models.ChannelIntegration
+		if err := config.DB.Where("channel_id = ? AND is_active = ? AND access_token IS NOT NULL AND access_token != ''", template.ChannelID, true).Order("id ASC").First(&channelInteg).Error; err == nil {
+			integration = channelInteg
+			found = true
+		}
+	}
+
+	if !found {
+		return nil, "", ""
+	}
+
+	wabaID := ""
+	if integration.MetaWabaID != nil && *integration.MetaWabaID != "" {
+		wabaID = *integration.MetaWabaID
+	}
+	if wabaID == "" {
+		var channel models.Channel
+		if err := config.DB.Where("id = ?", template.ChannelID).First(&channel).Error; err == nil && channel.MetaWabaID != nil && *channel.MetaWabaID != "" {
+			wabaID = *channel.MetaWabaID
+		} else {
+			wabaID, _ = repository.GetSettingTextValue("WAB_ID")
+		}
+	}
+
+	return &integration, wabaID, integration.AccessToken
+}
+
 func (c *TemplateController) RegisterMetaTemplate(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
@@ -441,9 +485,25 @@ func (c *TemplateController) RegisterMetaTemplate(ctx *gin.Context) {
 		return
 	}
 
-	// 1. Obtener integraciones activas del canal de la plantilla
-	var integrations []models.ChannelIntegration
-	if err := config.DB.Where("channel_id = ? AND is_active = ? AND access_token IS NOT NULL AND access_token != ''", template.ChannelID, true).Find(&integrations).Error; err != nil || len(integrations) == 0 {
+	bodyRunes := utf8.RuneCountInString(*template.BodyContent)
+	if bodyRunes > 1024 {
+		utils.Respond(ctx, http.StatusBadRequest, false, fmt.Sprintf("El cuerpo de la plantilla no puede superar los 1.024 caracteres permitidos por WhatsApp (actualmente tiene %d caracteres)", bodyRunes), nil, nil)
+		return
+	}
+
+	if template.HeaderContent != nil && utf8.RuneCountInString(*template.HeaderContent) > 60 {
+		utils.Respond(ctx, http.StatusBadRequest, false, fmt.Sprintf("El encabezado de la plantilla no puede superar los 60 caracteres (actualmente tiene %d caracteres)", utf8.RuneCountInString(*template.HeaderContent)), nil, nil)
+		return
+	}
+
+	if template.FooterContent != nil && utf8.RuneCountInString(*template.FooterContent) > 60 {
+		utils.Respond(ctx, http.StatusBadRequest, false, fmt.Sprintf("El pie de página de la plantilla no puede superar los 60 caracteres (actualmente tiene %d caracteres)", utf8.RuneCountInString(*template.FooterContent)), nil, nil)
+		return
+	}
+
+	// 1. Obtener integración, WABA ID y Access Token adecuados
+	integration, wabaID, accessToken := getIntegrationForTemplate(template)
+	if integration == nil || wabaID == "" || accessToken == "" {
 		// Mock/Simulación de registro si no tiene integraciones configuradas en el canal (útil para pruebas locales)
 		status := "pending"
 		err = c.repo.Update(template.ID, map[string]interface{}{
@@ -454,47 +514,14 @@ func (c *TemplateController) RegisterMetaTemplate(ctx *gin.Context) {
 			utils.Respond(ctx, http.StatusInternalServerError, false, "Error al actualizar estado local", nil, err)
 			return
 		}
-		
+
 		updated, _ := c.repo.GetByID(template.ID)
 		utils.Respond(ctx, http.StatusOK, true, "Registro en Meta simulado con éxito (En Revisión)", updated, nil)
 		return
 	}
 
-	// 2. Intentar registrar en Meta usando la primera integración activa del canal
-	integration := integrations[0]
-
-	var wabaID string
-	if integration.MetaWabaID != nil && *integration.MetaWabaID != "" {
-		wabaID = *integration.MetaWabaID
-	}
-
-	if wabaID == "" {
-		var channel models.Channel
-		if err := config.DB.Where("id = ?", template.ChannelID).First(&channel).Error; err == nil && channel.MetaWabaID != nil && *channel.MetaWabaID != "" {
-			wabaID = *channel.MetaWabaID
-		} else {
-			wabaID, _ = repository.GetSettingTextValue("WAB_ID")
-		}
-	}
-
-	if wabaID == "" || integration.AccessToken == "" {
-		// Fallback a simulación si faltan credenciales reales
-		status := "pending"
-		err = c.repo.Update(template.ID, map[string]interface{}{
-			"approval_status":  status,
-			"meta_template_id": "simulated_id_" + strconv.Itoa(int(template.ID)),
-		})
-		if err != nil {
-			utils.Respond(ctx, http.StatusInternalServerError, false, "Error al actualizar estado local", nil, err)
-			return
-		}
-		updated, _ := c.repo.GetByID(template.ID)
-		utils.Respond(ctx, http.StatusOK, true, "Registro en Meta simulado con éxito (Credenciales incompletas)", updated, nil)
-		return
-	}
-
-	// 3. Registrar en Meta API real
-	metaID, metaStatus, err := RegisterTemplateInMeta(wabaID, integration.AccessToken, template)
+	// 2. Registrar en Meta API real
+	metaID, metaStatus, err := RegisterTemplateInMeta(wabaID, accessToken, template)
 	if err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, false, "Error registrando en Meta: "+err.Error(), nil, err)
 		return
@@ -542,28 +569,10 @@ func (c *TemplateController) SyncMetaTemplate(ctx *gin.Context) {
 		isSimulated = true
 	}
 
-	// Buscar credenciales
-	var wabaID string
-	var accessToken string
-	var integration models.ChannelIntegration
-	if err := config.DB.Where("channel_id = ? AND is_active = ? AND access_token IS NOT NULL AND access_token != ''", template.ChannelID, true).First(&integration).Error; err == nil {
-		accessToken = integration.AccessToken
-		if integration.MetaWabaID != nil && *integration.MetaWabaID != "" {
-			wabaID = *integration.MetaWabaID
-		}
-	}
+	// Buscar credenciales priorizando la integración vinculada
+	integration, wabaID, accessToken := getIntegrationForTemplate(template)
 
-	// Fallback
-	if wabaID == "" {
-		var channel models.Channel
-		if err := config.DB.Where("id = ?", template.ChannelID).First(&channel).Error; err == nil && channel.MetaWabaID != nil && *channel.MetaWabaID != "" {
-			wabaID = *channel.MetaWabaID
-		} else {
-			wabaID, _ = repository.GetSettingTextValue("WAB_ID")
-		}
-	}
-
-	if isSimulated || wabaID == "" || accessToken == "" {
+	if isSimulated || integration == nil || wabaID == "" || accessToken == "" {
 		// Mock local: marcar como aprobado y poblar datos si estaban en null
 		status := "approved"
 		if strings.Contains(template.TemplateName, "test_reject") {
@@ -783,7 +792,9 @@ func RegisterTemplateInMeta(wabaID string, accessToken string, template *models.
 		fmt.Printf("⚠️ Meta Error Response: %+v\n", errResp)
 		errMsg := "Meta API returned status " + res.Status
 		if errObj, ok := errResp["error"].(map[string]interface{}); ok {
-			if msg, exists := errObj["message"].(string); exists {
+			if userMsg, exists := errObj["error_user_msg"].(string); exists && userMsg != "" {
+				errMsg = userMsg
+			} else if msg, exists := errObj["message"].(string); exists {
 				errMsg = msg
 			}
 		}
