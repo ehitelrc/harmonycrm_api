@@ -72,7 +72,6 @@ Campos requeridos en el JSON:
   "origin_account": string,
   "destination_account": string,
   "description": string,
-  "raw_text": string,                // Copia exacta del texto OCR completo
   "warnings": []string               // Lista de advertencias, puede ir vacía
 }
 
@@ -116,10 +115,8 @@ Reglas IMPORTANTES:
 		return nil, fmt.Errorf("error parseando JSON de OpenAI: %w. Respuesta fue: %s", err, rawJSON)
 	}
 
-	// Por si el modelo no rellenó el raw_text:
-	if result.RawText == "" {
-		result.RawText = ocrText
-	}
+	// Inyectar el texto OCR original directamente para ahorrar tokens de salida en OpenAI
+	result.RawText = ocrText
 
 	return &result, nil
 }

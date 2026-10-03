@@ -94,7 +94,7 @@ func (p *MessageProcessor) processImage(
 			return
 		}
 
-		if result == nil {
+		if result == nil || (result.BankName == "" && result.ReferenceNumber == "" && result.Amount == 0) {
 			fmt.Printf("ℹ️ [OCR Trace] La imagen del mensaje %d no es un recibo.\n", newMessage.ID)
 			return
 		}
